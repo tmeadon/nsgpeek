@@ -3,8 +3,14 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"strings"
+	"text/tabwriter"
+	"time"
+	"unicode/utf8"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -103,8 +109,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Printf("newest blob: %v, last modified: %v", *newestBlob.Name, *newestBlob.Properties.LastModified)
-
 	// create a blob clients and retrieve the block list
 	blob, err := containerClient.NewBlockBlobClient(*newestBlob.Name)
 	if err != nil {
@@ -125,11 +129,12 @@ func main() {
 		}
 	}
 
-	// read each block one by one
+	// read each block one by one and store the blocks containing flow logs
 	index := int64(0)
-	values := make([]string, 0)
+	values := make([][]byte, 0)
 
-	for _, block := range blocks.CommittedBlocks {
+	for i, block := range blocks.CommittedBlocks {
+
 		blockGet, err := blob.Download(ctx, &azblob.BlobDownloadOptions{
 			Count:  block.Size,
 			Offset: &index,
@@ -151,10 +156,65 @@ func main() {
 		}
 
 		index = index + *block.Size
-		values = append(values, data.String())
+
+		if i != 0 && i != (len(blocks.CommittedBlocks)-1) {
+			// r, s := utf8.DecodeRune(data.Bytes())
+			// log.Printf("rune: %v, size: %v", string(r), s)
+			values = append(values, data.Bytes())
+		}
 	}
 
-	for _, v := range values {
-		fmt.Printf("block contents: %v\n\n", v)
+	// for _, v := range values {
+	// 	fmt.Printf("block contents: %v\n\n", v)
+	// }
+
+	//for each value, unmarshal and print flows to screen
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', tabwriter.TabIndent)
+
+	fmt.Fprintf(w, "\n%v\t%v\t%v\t%v\t%v\t%v\n", "time", "rule", "src_addr", "src_port", "dst_addr", "dst_port")
+
+	for _, block := range values {
+		v := block
+
+		if r, s := utf8.DecodeRune(v); r == rune(',') {
+			v = v[s:]
+		}
+
+		var fb FlowLogBlock
+		err := json.Unmarshal(v, &fb)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, flowGroup := range fb.Properties.Flows {
+			for _, flow := range flowGroup.Flows {
+				for _, flowTuple := range flow.FlowTuples {
+					t := strings.Split(flowTuple, ",")
+					fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", fb.Time.Format(time.RFC3339Nano), flowGroup.Rule, t[1], t[3], t[2], t[4])
+				}
+			}
+		}
 	}
+
+	w.Flush()
+}
+
+type FlowLogBlock struct {
+	Time       time.Time              `json:"time"`
+	Properties FlowLogBlockProperties `json:"properties"`
+}
+
+type FlowLogBlockProperties struct {
+	Flows []FlowLogBlockFlowGroup `json:"flows"`
+}
+
+type FlowLogBlockFlowGroup struct {
+	Rule  string             `json:"rule"`
+	Flows []FlowLogBlockFlow `json:"flows"`
+}
+
+type FlowLogBlockFlow struct {
+	Mac        string   `json:"mac"`
+	FlowTuples []string `json:"flowTuples"`
 }
