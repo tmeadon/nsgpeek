@@ -3,23 +3,35 @@ package flowwriter
 import (
 	"fmt"
 	"io"
-	"text/tabwriter"
 	"time"
+
+	"github.com/olekukonko/tablewriter"
 )
 
 type FlowWriter struct {
-	tw *tabwriter.Writer
+	w     io.Writer
+	table *tablewriter.Table
 }
 
 func NewFlowWriter(w io.Writer) *FlowWriter {
-	tw := tabwriter.NewWriter(w, 0, 0, 4, ' ', tabwriter.TabIndent)
-	fw := FlowWriter{tw}
-	fw.writeHeader()
+	fw := FlowWriter{
+		w: w,
+	}
+	fw.initTableWriter()
 	return &fw
 }
 
-func (fw *FlowWriter) writeHeader() {
-	fmt.Fprintf(fw.tw, "\n%v\t%v\t%v\t%v\t%v\t%v\t\n", "time", "rule", "src_addr", "src_port", "dst_addr", "dst_port")
+func (fw *FlowWriter) initTableWriter() {
+	fw.table = tablewriter.NewWriter(fw.w)
+	fw.table.SetColumnSeparator("")
+	fw.table.SetRowSeparator("")
+	fw.table.SetBorder(false)
+	fw.table.SetTablePadding("\t")
+	fw.table.SetHeaderLine(false)
+	fw.table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	fw.table.SetAutoFormatHeaders(false)
+	fw.table.SetHeader([]string{"time", "rule", "src_addr", "src_port", "dst_addr", "dst_port", "direction", "decision", "state", "src_to_dst_bytes", "dst_to_src_bytes"})
+	fw.table.Append([]string{"", "", "", "", "", "", "", "", "", "", ""})
 }
 
 func (fw *FlowWriter) WriteFlowBlock(data []byte) error {
@@ -36,12 +48,16 @@ func (fw *FlowWriter) writeFlowBlock(fb *FlowLogBlock) {
 	for _, flowGroup := range fb.Properties.Flows {
 		for _, flow := range flowGroup.Flows {
 			for _, t := range flow.FlowTuples {
-				fmt.Fprintf(fw.tw, "%v\t%v\t%v\t%v\t%v\t%v", fb.Time.Format(time.RFC3339Nano), flowGroup.Rule, t.SourceAddress, t.SourcePort, t.DestAddress, t.DestPort)
+				fw.table.Append([]string{fb.Time.Format(time.StampMilli), flowGroup.Rule, t.SourceAddress, t.SourcePort,
+					t.DestAddress, t.DestPort, t.Direction, t.Decision, t.State, t.SrcToDestBytes, t.DestToSrcBytes})
 			}
 		}
 	}
 }
 
 func (fw *FlowWriter) Flush() {
-	fw.tw.Flush()
+	fmt.Print("\n")
+	fw.table.Render()
+	fmt.Print("\n")
+	fw.initTableWriter()
 }

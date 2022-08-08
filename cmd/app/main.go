@@ -1,18 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"log"
 	"os"
+	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/briandowns/spinner"
+	"github.com/tmeadon/nsgpeek/pkg/blobreader"
 	"github.com/tmeadon/nsgpeek/pkg/flowwriter"
+	"github.com/tmeadon/nsgpeek/pkg/logblobfinder"
 )
 
 var (
@@ -31,133 +30,52 @@ func main() {
 	// auth
 	log.Print("authenticating")
 
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	cred, err := azidentity.NewAzureCLICredential(nil)
 	if err != nil {
 		log.Fatalf("failed to obtain a credential: %v", err)
 	}
 
-	ctx := context.Background()
+	finder, err := logblobfinder.NewLogBlobFinder(subscriptionID, nsgName, log.Default(), context.Background(), cred)
+	blobCh := make(chan (*azblob.BlockBlobClient))
+	dataCh := make(chan ([][]byte))
+	streamStopCh := make(chan (bool))
+	errCh := make(chan (error))
 
-	// get nsg flow log details
-	log.Print("create nsg client")
+	var blob *azblob.BlockBlobClient
+	go finder.FindLatest(blobCh, errCh)
 
-	nsgClient, err := armnetwork.NewSecurityGroupsClient(subscriptionID, cred, nil)
-	if err != nil {
-		log.Fatal(err)
+	select {
+	case err := <-errCh:
+		log.Fatalf("error encountered: %v", err)
+	case blob = <-blobCh:
 	}
 
-	log.Print("get nsg")
+	blobReader := blobreader.NewBlobReader(blob, dataCh, errCh)
+	go blobReader.Stream(streamStopCh)
 
-	expand := "flowLogs"
-	nsg, err := nsgClient.Get(ctx, nsgRg, nsgName, &armnetwork.SecurityGroupsClientGetOptions{Expand: &expand})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	logStgID, err := arm.ParseResourceID(*nsg.Properties.FlowLogs[0].Properties.StorageID)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("flow logs storage ID: %v", logStgID.String())
-
-	// get storage access key
-	stgClient, err := armstorage.NewAccountsClient(subscriptionID, cred, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	keys, err := stgClient.ListKeys(ctx, logStgID.ResourceGroupName, logStgID.Name, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// find the most recent flow log blob
-	blobCred, err := azblob.NewSharedKeyCredential(logStgID.Name, *keys.Keys[0].Value)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	serviceClient, err := azblob.NewServiceClientWithSharedKey(fmt.Sprintf("https://%s.blob.core.windows.net/", logStgID.Name), blobCred, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	containerClient, err := serviceClient.NewContainerClient(flowLogBlobContainerName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pager := containerClient.ListBlobsFlat(nil)
-	var newestBlob *azblob.BlobItemInternal
-
-	for pager.NextPage(ctx) {
-		resp := pager.PageResponse()
-
-		for _, v := range resp.ListBlobsFlatSegmentResponse.Segment.BlobItems {
-			if newestBlob == nil || newestBlob.Properties.LastModified.Before(*v.Properties.LastModified) {
-				newestBlob = v
-			}
-		}
-	}
-
-	if err = pager.Err(); err != nil {
-		log.Fatal(err)
-	}
-
-	// create a blob clients and retrieve the block list
-	blob, err := containerClient.NewBlockBlobClient(*newestBlob.Name)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	blocks, err := blob.GetBlockList(ctx, azblob.BlockListTypeAll, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// get the size of the biggest block
-	biggest := 0
-
-	for _, b := range blocks.CommittedBlocks {
-		if int(*b.Size) > biggest {
-			biggest = int(*b.Size)
-		}
-	}
-
-	// read each block one by one and write out the logs
-	index := int64(0)
 	flowWriter := flowwriter.NewFlowWriter(os.Stdout)
+	spinner := spinner.New(spinner.CharSets[43], 100*time.Millisecond)
+	spinner.Prefix = "waiting for nsg logs...  "
 
-	for i, block := range blocks.CommittedBlocks {
+	for {
+		spinner.Start()
+		select {
+		case blob := <-blobCh:
+			log.Printf("new blob found: %v", blob.URL())
+			streamStopCh <- true
+			blobReader = blobreader.NewBlobReader(blob, dataCh, errCh)
+			go blobReader.Stream(streamStopCh)
 
-		blockGet, err := blob.Download(ctx, &azblob.BlobDownloadOptions{
-			Count:  block.Size,
-			Offset: &index,
-		})
-		if err != nil {
-			log.Fatal(err)
-		}
+		case data := <-dataCh:
+			spinner.Stop()
+			for _, d := range data {
+				flowWriter.WriteFlowBlock(d)
+			}
+			flowWriter.Flush()
+			spinner.Start()
 
-		data := &bytes.Buffer{}
-		reader := blockGet.Body(&azblob.RetryReaderOptions{})
-		_, err = data.ReadFrom(reader)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		err = reader.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		index = index + *block.Size
-
-		if i != 0 && i != (len(blocks.CommittedBlocks)-1) {
-			flowWriter.WriteFlowBlock(data.Bytes())
+		case err := <-errCh:
+			log.Fatalf("error encountered: %v", err)
 		}
 	}
-
-	flowWriter.Flush()
-
 }

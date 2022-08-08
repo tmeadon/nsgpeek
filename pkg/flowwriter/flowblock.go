@@ -52,10 +52,15 @@ func (f *FlowLogBlockFlow) UnmarshalJSON(data []byte) error {
 }
 
 type FlowTuple struct {
-	SourceAddress string
-	SourcePort    string
-	DestAddress   string
-	DestPort      string
+	SourceAddress  string
+	SourcePort     string
+	DestAddress    string
+	DestPort       string
+	Direction      string
+	Decision       string
+	State          string
+	SrcToDestBytes string
+	DestToSrcBytes string
 }
 
 type jsonFlowLogBlockFlow struct {
@@ -69,16 +74,56 @@ func (jf *jsonFlowLogBlockFlow) FlowLogBlockFlow() *FlowLogBlockFlow {
 	for _, tuple := range jf.FlowTuples {
 		t := strings.Split(tuple, ",")
 
-		tuples = append(tuples, FlowTuple{
+		newTuple := FlowTuple{
 			SourceAddress: t[1],
 			SourcePort:    t[3],
 			DestAddress:   t[2],
 			DestPort:      t[4],
-		})
+			Direction:     formatDirection(t[6]),
+			Decision:      formatDecision(t[7]),
+		}
+
+		// include the flow log v2 properties if present
+		if len(t) > 8 {
+			newTuple.State = formatState(t[8])
+			newTuple.SrcToDestBytes = t[10]
+			newTuple.DestToSrcBytes = t[12]
+		}
+
+		tuples = append(tuples, newTuple)
 	}
 
 	return &FlowLogBlockFlow{
 		Mac:        jf.Mac,
 		FlowTuples: tuples,
+	}
+}
+
+func formatDirection(dir string) string {
+	if dir == "I" {
+		return "in"
+	} else {
+		return "out"
+	}
+}
+
+func formatDecision(dec string) string {
+	if dec == "A" {
+		return "allow"
+	} else {
+		return "deny"
+	}
+}
+
+func formatState(state string) string {
+	switch state {
+	case "B":
+		return "begin"
+	case "C":
+		return "continuing"
+	case "E":
+		return "end"
+	default:
+		return "-"
 	}
 }
