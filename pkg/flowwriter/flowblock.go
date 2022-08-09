@@ -7,18 +7,18 @@ import (
 	"unicode/utf8"
 )
 
-type FlowLogBlock struct {
+type flowLogBlock struct {
 	Time       time.Time              `json:"time"`
-	Properties FlowLogBlockProperties `json:"properties"`
+	Properties flowLogBlockProperties `json:"properties"`
 }
 
-func NewFlowLogBlock(data []byte) (*FlowLogBlock, error) {
+func newFlowLogBlock(data []byte) (*flowLogBlock, error) {
 	// strip the first rune if it's a comma to ensure we have valid json
 	if r, s := utf8.DecodeRune(data); r == rune(',') {
 		data = data[s:]
 	}
 
-	var fb FlowLogBlock
+	var fb flowLogBlock
 	if err := json.Unmarshal(data, &fb); err != nil {
 		return nil, err
 	}
@@ -26,32 +26,32 @@ func NewFlowLogBlock(data []byte) (*FlowLogBlock, error) {
 	return &fb, nil
 }
 
-type FlowLogBlockProperties struct {
-	Flows []FlowLogBlockFlowGroup `json:"flows"`
+type flowLogBlockProperties struct {
+	Flows []flowLogBlockFlowGroup `json:"flows"`
 }
 
-type FlowLogBlockFlowGroup struct {
+type flowLogBlockFlowGroup struct {
 	Rule  string             `json:"rule"`
-	Flows []FlowLogBlockFlow `json:"flows"`
+	Flows []flowLogBlockFlow `json:"flows"`
 }
 
-type FlowLogBlockFlow struct {
+type flowLogBlockFlow struct {
 	Mac        string      `json:"mac"`
-	FlowTuples []FlowTuple `json:"flowTuples"`
+	FlowTuples []flowTuple `json:"flowTuples"`
 }
 
-func (f *FlowLogBlockFlow) UnmarshalJSON(data []byte) error {
+func (f *flowLogBlockFlow) UnmarshalJSON(data []byte) error {
 	var jf jsonFlowLogBlockFlow
 	if err := json.Unmarshal(data, &jf); err != nil {
 		return err
 	}
 
-	*f = *jf.FlowLogBlockFlow()
+	*f = *jf.flowLogBlockFlow()
 
 	return nil
 }
 
-type FlowTuple struct {
+type flowTuple struct {
 	SourceAddress  string
 	SourcePort     string
 	DestAddress    string
@@ -68,13 +68,13 @@ type jsonFlowLogBlockFlow struct {
 	FlowTuples []string `json:"flowTuples"`
 }
 
-func (jf *jsonFlowLogBlockFlow) FlowLogBlockFlow() *FlowLogBlockFlow {
-	tuples := make([]FlowTuple, 0)
+func (jf *jsonFlowLogBlockFlow) flowLogBlockFlow() *flowLogBlockFlow {
+	tuples := make([]flowTuple, 0)
 
 	for _, tuple := range jf.FlowTuples {
 		t := strings.Split(tuple, ",")
 
-		newTuple := FlowTuple{
+		newTuple := flowTuple{
 			SourceAddress: t[1],
 			SourcePort:    t[3],
 			DestAddress:   t[2],
@@ -93,7 +93,7 @@ func (jf *jsonFlowLogBlockFlow) FlowLogBlockFlow() *FlowLogBlockFlow {
 		tuples = append(tuples, newTuple)
 	}
 
-	return &FlowLogBlockFlow{
+	return &flowLogBlockFlow{
 		Mac:        jf.Mac,
 		FlowTuples: tuples,
 	}

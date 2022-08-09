@@ -4,18 +4,24 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 )
 
+type Blob interface {
+	Download(ctx context.Context, options *azblob.BlobDownloadOptions) (BlobDownloadResponse, error)
+	GetBlockList(ctx context.Context, listType azblob.BlockListType, options *azblob.BlockBlobGetBlockListOptions) (BlobWrapperGetBlockListResponse, error)
+}
+
 type BlobReader struct {
-	blob  *azblob.BlockBlobClient
+	blob  Blob
 	outCh chan ([][]byte)
 	errCh chan error
 }
 
-func NewBlobReader(blob *azblob.BlockBlobClient, outCh chan ([][]byte), errCh chan (error)) *BlobReader {
+func NewBlobReader(blob Blob, outCh chan ([][]byte), errCh chan (error)) *BlobReader {
 	return &BlobReader{
 		blob:  blob,
 		outCh: outCh,
@@ -32,7 +38,8 @@ func (br *BlobReader) Stream(stop chan (bool)) {
 
 	for {
 		select {
-		case <-stop:
+		case _ = <-stop:
+			log.Print("stop")
 			break
 		case <-time.After(time.Second * 5):
 			pos, err := br.readNewBlocks(int64(readPosition))
@@ -72,7 +79,7 @@ func (br *BlobReader) readNewBlocks(offset int64) (int64, error) {
 	// iterate through the blocks, skipping the first and the last
 	for i := 0; i < (len(blocks.CommittedBlocks) - 1); i++ {
 		if index >= offset {
-			d, err := br.readBlock(blocks.CommittedBlocks[i], index)
+			d, err := br.readBlock(&blocks.CommittedBlocks[i], index)
 			if err != nil {
 				return 0, err
 			}
@@ -92,7 +99,7 @@ func (br *BlobReader) readNewBlocks(offset int64) (int64, error) {
 	return index, nil
 }
 
-func (br *BlobReader) getBlockList() (*azblob.BlockBlobGetBlockListResponse, error) {
+func (br *BlobReader) getBlockList() (*BlobWrapperGetBlockListResponse, error) {
 	blocks, err := br.blob.GetBlockList(context.Background(), azblob.BlockListTypeAll, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block list: %w", err)
@@ -101,17 +108,17 @@ func (br *BlobReader) getBlockList() (*azblob.BlockBlobGetBlockListResponse, err
 	return &blocks, nil
 }
 
-func (br *BlobReader) readBlock(b *azblob.Block, blockIndex int64) ([]byte, error) {
-	blockGet, err := br.blob.Download(context.Background(), &azblob.BlobDownloadOptions{
-		Count:  b.Size,
-		Offset: &blockIndex,
-	})
+func (br *BlobReader) readBlock(b *BlobWrapperBlock, blockIndex int64) ([]byte, error) {
+	downloadOpts := azblob.BlobDownloadOptions{Count: b.Size, Offset: &blockIndex}
+
+	blockGet, err := br.blob.Download(context.Background(), &downloadOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download block: %w", err)
 	}
 
 	data := &bytes.Buffer{}
 	reader := blockGet.Body(&azblob.RetryReaderOptions{})
+
 	_, err = data.ReadFrom(reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read block: %w", err)

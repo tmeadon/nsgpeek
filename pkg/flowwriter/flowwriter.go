@@ -35,16 +35,16 @@ func (fw *FlowWriter) initTableWriter() {
 }
 
 func (fw *FlowWriter) WriteFlowBlock(data []byte) error {
-	fb, err := NewFlowLogBlock(data)
+	fb, err := newFlowLogBlock(data)
 	if err != nil {
-		return fmt.Errorf("unable to decode flow log block: %w", err)
+		return fmt.Errorf("unable to decode flow log block: %w \n%v", err, string(data))
 	}
 
 	fw.writeFlowBlock(fb)
 	return nil
 }
 
-func (fw *FlowWriter) writeFlowBlock(fb *FlowLogBlock) {
+func (fw *FlowWriter) writeFlowBlock(fb *flowLogBlock) {
 	for _, flowGroup := range fb.Properties.Flows {
 		for _, flow := range flowGroup.Flows {
 			for _, t := range flow.FlowTuples {

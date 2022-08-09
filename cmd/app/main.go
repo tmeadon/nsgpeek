@@ -50,7 +50,7 @@ func main() {
 	case blob = <-blobCh:
 	}
 
-	blobReader := blobreader.NewBlobReader(blob, dataCh, errCh)
+	blobReader := blobreader.NewBlobReader(blobreader.NewBlobWrapper(blob), dataCh, errCh)
 	go blobReader.Stream(streamStopCh)
 
 	flowWriter := flowwriter.NewFlowWriter(os.Stdout)
@@ -61,9 +61,8 @@ func main() {
 		spinner.Start()
 		select {
 		case blob := <-blobCh:
-			log.Printf("new blob found: %v", blob.URL())
 			streamStopCh <- true
-			blobReader = blobreader.NewBlobReader(blob, dataCh, errCh)
+			blobReader = blobreader.NewBlobReader(blobreader.NewBlobWrapper(blob), dataCh, errCh)
 			go blobReader.Stream(streamStopCh)
 
 		case data := <-dataCh:
