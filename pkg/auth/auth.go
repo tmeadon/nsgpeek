@@ -66,6 +66,9 @@ func listSubscriptions(token string) ([]string, error) {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
+	str := string(body)
+	_ = str
+
 	var subList subscriptionList
 	err = json.Unmarshal(body, &subList)
 	if err != nil {
@@ -74,17 +77,17 @@ func listSubscriptions(token string) ([]string, error) {
 
 	subs := make([]string, 0)
 
-	for _, s := range subList.value {
-		subs = append(subs, s.subscriptionId)
+	for _, s := range subList.Value {
+		subs = append(subs, s.SubscriptionId)
 	}
 
 	return subs, nil
 }
 
 type subscriptionList struct {
-	value []subscription
+	Value []subscription `json:"value"`
 }
 
 type subscription struct {
-	subscriptionId string
+	SubscriptionId string `json:"subscriptionId"`
 }
