@@ -2,40 +2,46 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/briandowns/spinner"
+	"github.com/tmeadon/nsgpeek/pkg/auth"
 	"github.com/tmeadon/nsgpeek/pkg/blobreader"
 	"github.com/tmeadon/nsgpeek/pkg/flowwriter"
 	"github.com/tmeadon/nsgpeek/pkg/logblobfinder"
 )
 
 var (
-	subscriptionID           string = ""
-	nsgRg                    string = "nsg-view"
-	nsgName                  string = "nsg-view"
 	flowLogBlobContainerName string = "insights-logs-networksecuritygroupflowevent"
 )
 
 func main() {
-	// subscriptionID = os.Getenv("AZURE_SUBSCRIPTION_ID")
-	if len(subscriptionID) == 0 {
-		log.Fatal("AZURE_SUBSCRIPTION_ID is not set")
+
+	nsgName := flag.String("n", "", "name of the nsg")
+	flag.Parse()
+
+	if *nsgName == "" {
+		fmt.Printf("ERROR: missing name parameter\n\n")
+		flag.Usage()
+		os.Exit(1)
 	}
 
-	// auth
-	log.Print("authenticating")
-
-	cred, err := azidentity.NewAzureCLICredential(nil)
+	cred, err := auth.GetCredential()
 	if err != nil {
-		log.Fatalf("failed to obtain a credential: %v", err)
+		log.Fatal(err)
 	}
 
-	finder, err := logblobfinder.NewLogBlobFinder(subscriptionID, nsgName, log.Default(), context.Background(), cred)
+	subs, err := auth.GetSubscriptions(cred)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	finder := logblobfinder.NewLogBlobFinder(subs, *nsgName, log.Default(), context.Background(), cred)
 	blobCh := make(chan (*azblob.BlockBlobClient))
 	dataCh := make(chan ([][]byte))
 	streamStopCh := make(chan (bool))
