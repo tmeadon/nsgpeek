@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 )
@@ -17,10 +16,10 @@ type Blob struct {
 
 type AzureStorageBlobGetter struct {
 	ctx  context.Context
-	cred *azcore.TokenCredential
+	cred *Credential
 }
 
-func NewAzureStorageBlobGetter(ctx context.Context, cred *azcore.TokenCredential) *AzureStorageBlobGetter {
+func NewAzureStorageBlobGetter(ctx context.Context, cred *Credential) *AzureStorageBlobGetter {
 	return &AzureStorageBlobGetter{
 		ctx:  ctx,
 		cred: cred,

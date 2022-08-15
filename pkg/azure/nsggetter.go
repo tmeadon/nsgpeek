@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 )
@@ -12,10 +11,10 @@ import (
 type AzureNsgGetter struct {
 	nsgName string
 	ctx     context.Context
-	cred    *azcore.TokenCredential
+	cred    *Credential
 }
 
-func NewAzureNsgGetter(nsgName string, ctx context.Context, cred *azcore.TokenCredential) *AzureNsgGetter {
+func NewAzureNsgGetter(nsgName string, ctx context.Context, cred *Credential) *AzureNsgGetter {
 	return &AzureNsgGetter{
 		nsgName: nsgName,
 		ctx:     ctx,

@@ -8,9 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/briandowns/spinner"
-	"github.com/tmeadon/nsgpeek/pkg/auth"
+	"github.com/tmeadon/nsgpeek/pkg/azure"
 	"github.com/tmeadon/nsgpeek/pkg/blobreader"
 	"github.com/tmeadon/nsgpeek/pkg/flowwriter"
 	"github.com/tmeadon/nsgpeek/pkg/logblobfinder"
@@ -31,24 +30,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	cred, err := auth.GetCredential()
+	cred, err := azure.GetCredential()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	subs, err := auth.GetSubscriptions(cred)
+	subs, err := azure.GetSubscriptions(cred)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	finder := logblobfinder.NewLogBlobFinder(subs, *nsgName, log.Default(), context.Background(), cred)
-	blobCh := make(chan (*azblob.BlockBlobClient))
+	finder := logblobfinder.NewLogBlobFinder(subs, *nsgName, context.Background(), cred)
+	blobCh := make(chan (*azure.Blob))
 	dataCh := make(chan ([][]byte))
 	streamStopCh := make(chan (bool))
 	errCh := make(chan (error))
 
-	var blob *azblob.BlockBlobClient
-	go finder.FindLatest(blobCh, errCh)
+	var blob *azure.Blob
+	go finder.FindLatest(blobCh, errCh, time.Second*10)
 
 	select {
 	case err := <-errCh:

@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/tmeadon/nsgpeek/pkg/azure"
 )
 
 type BlobDownloadResponse interface {
@@ -29,10 +30,10 @@ type BlobWrapperBlock struct {
 }
 
 type BlobWrapper struct {
-	blob *azblob.BlockBlobClient
+	blob *azure.Blob
 }
 
-func NewBlobWrapper(blob *azblob.BlockBlobClient) *BlobWrapper {
+func NewBlobWrapper(blob *azure.Blob) *BlobWrapper {
 	return &BlobWrapper{blob}
 }
 

@@ -4,64 +4,36 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/tmeadon/nsgpeek/pkg/azure"
 )
 
-func (f *LogBlobFinder) FindLatest(ch chan (*azblob.BlockBlobClient), errCh chan (error)) {
-	if f.flowLogStorageId == nil {
-		err := f.findNsgLogStorageId()
-		if err != nil {
-			errCh <- fmt.Errorf("unable to find storage id for flow logs: %w", err)
-			return
-		}
-	}
+var getBlobUrl = func(blob *azure.Blob) string {
+	return blob.URL()
+}
 
-	containerClient, err := f.getContainerClient(f.flowLogStorageId)
+func (f *LogBlobFinder) FindLatest(ch chan (*azure.Blob), errCh chan (error), sleepDuration time.Duration) {
+	stgId, err := f.GetNsgFlowLogStorageId(f.allSubscriptionIds)
 	if err != nil {
-		errCh <- err
+		errCh <- fmt.Errorf("unable to find storage id for flow logs: %w", err)
 		return
 	}
 
-	var currentBlob string
+	var currentBlobUrl string
 
 	for {
-		newestBlob, err := f.findNewestBlob(containerClient)
+		newestBlob, err := f.GetNewestBlob(stgId)
 		if err != nil {
 			errCh <- err
 			return
 		}
 
-		if currentBlob != newestBlob {
-			blobClient, err := f.getBlockBlobClient(containerClient, newestBlob)
-			if err != nil {
-				errCh <- err
-				return
-			}
-			ch <- blobClient
-			currentBlob = newestBlob
+		blobUrl := getBlobUrl(newestBlob)
+
+		if currentBlobUrl != blobUrl {
+			ch <- newestBlob
+			currentBlobUrl = blobUrl
 		}
 
-		time.Sleep(time.Second * 10)
+		time.Sleep(sleepDuration)
 	}
-}
-
-func (f *LogBlobFinder) findNewestBlob(containerClient *azblob.ContainerClient) (string, error) {
-	var newestBlob *azblob.BlobItemInternal
-	pager := containerClient.ListBlobsFlat(nil)
-
-	for pager.NextPage(f.ctx) {
-		resp := pager.PageResponse()
-
-		for _, v := range resp.ListBlobsFlatSegmentResponse.Segment.BlobItems {
-			if newestBlob == nil || newestBlob.Properties.LastModified.Before(*v.Properties.LastModified) {
-				newestBlob = v
-			}
-		}
-	}
-
-	if err := pager.Err(); err != nil {
-		return "", fmt.Errorf("failed to list blobs: %w", err)
-	}
-
-	return *newestBlob.Name, nil
 }
