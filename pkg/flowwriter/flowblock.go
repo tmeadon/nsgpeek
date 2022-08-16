@@ -2,6 +2,7 @@ package flowwriter
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -52,6 +53,7 @@ func (f *flowLogBlockFlow) UnmarshalJSON(data []byte) error {
 }
 
 type flowTuple struct {
+	Time           time.Time
 	SourceAddress  string
 	SourcePort     string
 	DestAddress    string
@@ -75,6 +77,7 @@ func (jf *jsonFlowLogBlockFlow) flowLogBlockFlow() *flowLogBlockFlow {
 		t := strings.Split(tuple, ",")
 
 		newTuple := flowTuple{
+			Time:          convertTime(t[0]),
 			SourceAddress: t[1],
 			SourcePort:    t[3],
 			DestAddress:   t[2],
@@ -126,4 +129,9 @@ func formatState(state string) string {
 	default:
 		return "-"
 	}
+}
+
+func convertTime(unixTime string) time.Time {
+	t, _ := strconv.Atoi(unixTime)
+	return time.Unix(int64(t), 0)
 }

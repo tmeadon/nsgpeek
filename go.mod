@@ -10,6 +10,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage v1.0.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.4.1 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v0.5.3 // indirect
+	github.com/alecthomas/kong v0.6.1 // indirect
 	github.com/briandowns/spinner v1.19.0 // indirect
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect

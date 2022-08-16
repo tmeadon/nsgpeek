@@ -14,17 +14,17 @@ type storageBlobGetter interface {
 	GetNewestBlob(stgAccId *azure.ResourceId) (*azure.Blob, error)
 }
 
-type LogBlobFinder struct {
+type Finder struct {
 	nsgGetter
 	storageBlobGetter
 	allSubscriptionIds []string
 }
 
-func NewLogBlobFinder(allSubscriptionIds []string, nsgName string, ctx context.Context, cred *azure.Credential) *LogBlobFinder {
+func NewLogBlobFinder(allSubscriptionIds []string, nsgName string, ctx context.Context, cred *azure.Credential) *Finder {
 	nsgGetter := azure.NewAzureNsgGetter(nsgName, ctx, cred)
 	blobGetter := azure.NewAzureStorageBlobGetter(ctx, cred)
 
-	return &LogBlobFinder{
+	return &Finder{
 		nsgGetter:          nsgGetter,
 		storageBlobGetter:  blobGetter,
 		allSubscriptionIds: allSubscriptionIds,

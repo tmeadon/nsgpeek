@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	finder                LogBlobFinder
+	finder                Finder
 	blobCh                chan (*azure.Blob)
 	errCh                 chan (error)
 	fakeBlob              *azure.Blob
@@ -57,7 +57,7 @@ func TestMain(m *testing.M) {
 	mockStorageBlobGetter = new(fakeStorageBlobGetter)
 	mockStorageBlobGetter.NewestBlob = fakeBlob
 
-	finder = LogBlobFinder{
+	finder = Finder{
 		nsgGetter:          mockNsgGetter,
 		storageBlobGetter:  mockStorageBlobGetter,
 		allSubscriptionIds: fakeSubscriptionIds,

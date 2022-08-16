@@ -11,7 +11,7 @@ var getBlobUrl = func(blob *azure.Blob) string {
 	return blob.URL()
 }
 
-func (f *LogBlobFinder) FindLatest(ch chan (*azure.Blob), errCh chan (error), sleepDuration time.Duration) {
+func (f *Finder) FindLatest(ch chan (*azure.Blob), errCh chan (error), sleepDuration time.Duration) {
 	stgId, err := f.GetNsgFlowLogStorageId(f.allSubscriptionIds)
 	if err != nil {
 		errCh <- fmt.Errorf("unable to find storage id for flow logs: %w", err)
