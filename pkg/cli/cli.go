@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/alecthomas/kong"
 	"github.com/tmeadon/nsgpeek/pkg/azure"
 )
@@ -23,16 +21,11 @@ type cliContext struct {
 }
 
 func Run() {
-	ctx := kong.Parse(&cli)
+	ctx := kong.Parse(&cli, kong.UsageOnError(), kong.Name("nsgpeek"))
 	getCredential(ctx)
 	getUserSubscriptions(ctx)
 
 	err := ctx.Run(&cliContext{Debug: cli.Debug})
-
-	if err != nil {
-		ctx.PrintUsage(true)
-		fmt.Println()
-	}
 
 	ctx.FatalIfErrorf(err)
 }
