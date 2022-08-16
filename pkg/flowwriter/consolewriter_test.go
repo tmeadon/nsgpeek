@@ -62,14 +62,14 @@ var testFlows string = `
 `
 
 var wantedLines = [][]string{
-	{"Aug", "9", "11:02:24.000", "DefaultRule_AllowInternetOutBound", "10.0.0.4", "50276", "51.104.229.52", "443", "out", "allow", "end", "2839", "5801"},
-	{"Aug", "9", "11:02:24.000", "DefaultRule_AllowInternetOutBound", "10.0.0.4", "47382", "51.105.74.153", "443", "out", "deny", "begin"},
-	{"Aug", "9", "11:02:30.000", "DefaultRule_AllowInternetOutBound", "10.0.0.4", "47382", "51.105.74.153", "443", "out", "allow", "continuing", "3769", "5061"},
-	{"Aug", "9", "11:02:36.000", "DefaultRule_DenyAllInBound", "117.88.229.255", "50996", "10.0.0.4", "23", "in", "deny", "begin"},
-	{"Aug", "9", "11:02:41.000", "DefaultRule_DenyAllInBound", "167.99.14.84", "39984", "10.0.0.4", "8080", "in", "deny", "begin"},
-	{"Aug", "9", "11:02:49.000", "DefaultRule_DenyAllInBound", "176.63.187.19", "46852", "10.0.0.4", "23", "in", "deny", "begin"},
-	{"Aug", "9", "11:02:31.000", "UserRule_ssh", "38.88.252.187", "59246", "10.0.0.4", "22", "in", "allow", "begin"},
-	{"Aug", "9", "11:02:38.000", "UserRule_ssh", "61.177.173.21", "56496", "10.0.0.4", "22", "in", "allow", "begin"},
+	{"Aug", "9", "10:02:24.000", "DefaultRule_AllowInternetOutBound", "10.0.0.4", "50276", "51.104.229.52", "443", "out", "allow", "end", "2839", "5801"},
+	{"Aug", "9", "10:02:24.000", "DefaultRule_AllowInternetOutBound", "10.0.0.4", "47382", "51.105.74.153", "443", "out", "deny", "begin"},
+	{"Aug", "9", "10:02:30.000", "DefaultRule_AllowInternetOutBound", "10.0.0.4", "47382", "51.105.74.153", "443", "out", "allow", "continuing", "3769", "5061"},
+	{"Aug", "9", "10:02:36.000", "DefaultRule_DenyAllInBound", "117.88.229.255", "50996", "10.0.0.4", "23", "in", "deny", "begin"},
+	{"Aug", "9", "10:02:41.000", "DefaultRule_DenyAllInBound", "167.99.14.84", "39984", "10.0.0.4", "8080", "in", "deny", "begin"},
+	{"Aug", "9", "10:02:49.000", "DefaultRule_DenyAllInBound", "176.63.187.19", "46852", "10.0.0.4", "23", "in", "deny", "begin"},
+	{"Aug", "9", "10:02:31.000", "UserRule_ssh", "38.88.252.187", "59246", "10.0.0.4", "22", "in", "allow", "begin"},
+	{"Aug", "9", "10:02:38.000", "UserRule_ssh", "61.177.173.21", "56496", "10.0.0.4", "22", "in", "allow", "begin"},
 }
 
 func TestConsoleWriter(t *testing.T) {

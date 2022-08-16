@@ -133,5 +133,5 @@ func formatState(state string) string {
 
 func convertTime(unixTime string) time.Time {
 	t, _ := strconv.Atoi(unixTime)
-	return time.Unix(int64(t), 0)
+	return time.Unix(int64(t), 0).UTC()
 }
