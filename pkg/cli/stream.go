@@ -15,6 +15,7 @@ import (
 
 type StreamCmd struct {
 	NsgName string `required:"" short:"n" help:"Name of the NSG to stream logs from"`
+	CsvFile string `help:"Path to a CSV file to stream logs to"`
 }
 
 func (s *StreamCmd) Run(ctx *cliContext) error {
@@ -38,6 +39,22 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 	go blobReader.Stream(streamStopCh)
 
 	flowWriter := flowwriter.NewConsoleWriter(os.Stdout)
+	writers := flowwriter.NewWriterGroup(flowWriter)
+
+	if s.CsvFile != "" {
+		file, err := os.Create(s.CsvFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		csvWriter, err := flowwriter.NewCsvFileWriter(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		writers.AddWriter(csvWriter)
+	}
+
 	spinner := spinner.New(spinner.CharSets[43], 100*time.Millisecond)
 	spinner.Prefix = "waiting for nsg logs...  "
 
@@ -53,9 +70,9 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 		case data := <-dataCh:
 			spinner.Stop()
 			for _, d := range data {
-				flowWriter.WriteFlowBlock(d)
+				writers.WriteFlowBlock(d)
 			}
-			flowWriter.Flush()
+			writers.Flush()
 			spinner.Start()
 
 		case err := <-errCh:
