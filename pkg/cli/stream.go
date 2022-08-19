@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -40,20 +41,7 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 
 	flowWriter := flowwriter.NewConsoleWriter(os.Stdout)
 	writers := flowwriter.NewWriterGroup(flowWriter)
-
-	if s.CsvFile != "" {
-		file, err := os.Create(s.CsvFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		csvWriter, err := flowwriter.NewCsvFileWriter(file)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		writers.AddWriter(csvWriter)
-	}
+	addCsvWriter(s.CsvFile, writers)
 
 	spinner := spinner.New(spinner.CharSets[43], 100*time.Millisecond)
 	spinner.Prefix = "waiting for nsg logs...  "
@@ -79,4 +67,21 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 			log.Fatalf("error encountered: %v", err)
 		}
 	}
+}
+
+func addCsvWriter(path string, wg *flowwriter.WriterGroup) error {
+	if path != "" {
+		file, err := os.Create(path)
+		if err != nil {
+			return fmt.Errorf("failed to create file %v: %w", path, err)
+		}
+
+		csvWriter, err := flowwriter.NewCsvFileWriter(file)
+		if err != nil {
+			return fmt.Errorf("failed to create csv file writer: %w", err)
+		}
+
+		wg.AddWriter(csvWriter)
+	}
+	return nil
 }
