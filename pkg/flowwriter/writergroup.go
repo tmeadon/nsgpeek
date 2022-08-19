@@ -20,6 +20,10 @@ func (wg *WriterGroup) WriteFlowBlock(data []byte) error {
 	return nil
 }
 
+func (wg *WriterGroup) AddWriter(w FlowWriter) {
+	wg.writers = append(wg.writers, w)
+}
+
 func (wg *WriterGroup) Flush() {
 	for _, w := range wg.writers {
 		w.Flush()
