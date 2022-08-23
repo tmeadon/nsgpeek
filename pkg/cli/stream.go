@@ -20,7 +20,10 @@ type StreamCmd struct {
 }
 
 func (s *StreamCmd) Run(ctx *cliContext) error {
-	finder := logblobfinder.NewLogBlobFinder(subs, s.NsgName, context.Background(), cred)
+	finder, err := logblobfinder.NewLogBlobFinder(subs, s.NsgName, context.Background(), cred)
+	if err != nil {
+		return err
+	}
 
 	blobCh := make(chan (*azure.Blob))
 	dataCh := make(chan ([][]byte))

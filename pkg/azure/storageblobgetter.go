@@ -15,29 +15,33 @@ type Blob struct {
 }
 
 type AzureStorageBlobGetter struct {
-	ctx  context.Context
-	cred *Credential
+	ctx             context.Context
+	cred            *Credential
+	containerClient *azblob.ContainerClient
 }
 
-func NewAzureStorageBlobGetter(ctx context.Context, cred *Credential) *AzureStorageBlobGetter {
-	return &AzureStorageBlobGetter{
+func NewAzureStorageBlobGetter(ctx context.Context, cred *Credential, stgAccId *ResourceId) (*AzureStorageBlobGetter, error) {
+	a := AzureStorageBlobGetter{
 		ctx:  ctx,
 		cred: cred,
 	}
+
+	c, err := a.getContainerClient(stgAccId)
+	if err != nil {
+		return nil, err
+	}
+
+	a.containerClient = c
+	return &a, nil
 }
 
-func (a *AzureStorageBlobGetter) GetNewestBlob(stgAccId *ResourceId) (*Blob, error) {
-	client, err := a.getContainerClient(stgAccId)
+func (a *AzureStorageBlobGetter) GetNewestBlob(prefix string) (*Blob, error) {
+	newestBlobName, err := a.findNewestBlobName(prefix, a.containerClient)
 	if err != nil {
 		return nil, err
 	}
 
-	newestBlobName, err := a.findNewestBlobName(client)
-	if err != nil {
-		return nil, err
-	}
-
-	blobClient, err := a.getBlockBlobClient(client, newestBlobName)
+	blobClient, err := a.getBlockBlobClient(a.containerClient, newestBlobName)
 	if err != nil {
 		return nil, err
 	}
@@ -82,9 +86,9 @@ func (a *AzureStorageBlobGetter) newStorageAccountClient(subscriptionId string) 
 	return stgClient, nil
 }
 
-func (a *AzureStorageBlobGetter) findNewestBlobName(containerClient *azblob.ContainerClient) (string, error) {
+func (a *AzureStorageBlobGetter) findNewestBlobName(prefix string, containerClient *azblob.ContainerClient) (string, error) {
 	var newestBlob *azblob.BlobItemInternal
-	pager := containerClient.ListBlobsFlat(nil)
+	pager := containerClient.ListBlobsFlat(&azblob.ContainerListBlobsFlatOptions{Prefix: &prefix})
 
 	for pager.NextPage(a.ctx) {
 		resp := pager.PageResponse()
@@ -110,4 +114,26 @@ func (a *AzureStorageBlobGetter) getBlockBlobClient(containerClient *azblob.Cont
 	}
 
 	return blob, nil
+}
+
+func (a *AzureStorageBlobGetter) ListBlobDirectory(prefix string) (blobs []string, prefixes []string, err error) {
+	pager := a.containerClient.ListBlobsHierarchy("/", &azblob.ContainerListBlobsHierarchyOptions{Prefix: &prefix})
+
+	for pager.NextPage(a.ctx) {
+		resp := pager.PageResponse()
+
+		for _, b := range resp.Segment.BlobItems {
+			blobs = append(blobs, *b.Name)
+		}
+
+		for _, p := range resp.Segment.BlobPrefixes {
+			prefixes = append(prefixes, *p.Name)
+		}
+	}
+
+	if err := pager.Err(); err != nil {
+		return nil, nil, fmt.Errorf("failed to list blob directory with prefix %v: %w", prefix, err)
+	}
+
+	return
 }
