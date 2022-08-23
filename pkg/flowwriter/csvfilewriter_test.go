@@ -2,8 +2,10 @@ package flowwriter
 
 import (
 	"bytes"
+	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 var csvWriterTestFlows string = `
@@ -109,6 +111,9 @@ func TestCsvFileWriter(t *testing.T) {
 			t.Errorf("unexpected number of file lines. want: %v, got: %v", len(wantedCsvFileLines), len(fileLines))
 		}
 
+		// sort wanted file line strings by date
+		sort.Sort(SortCsvFileLinesByTime(wantedCsvFileLines))
+
 		for i, wantedLine := range wantedCsvFileLines {
 			got := strings.Split(fileLines[i], ",")
 			want := strings.Split(wantedLine, ",")
@@ -119,9 +124,32 @@ func TestCsvFileWriter(t *testing.T) {
 
 			for j, w := range want {
 				if w != got[j] {
-					t.Errorf("missing table column value: '%v' in line '%v'", w, fileLines[i])
+					t.Errorf("missing table column value: '%v'. want: '%v', got: '%v'", w, wantedLine, fileLines[i])
 				}
 			}
 		}
 	})
+}
+
+type SortCsvFileLinesByTime []string
+
+func (s SortCsvFileLinesByTime) Len() int { return len(s) }
+
+func (s SortCsvFileLinesByTime) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+func (s SortCsvFileLinesByTime) Less(i, j int) bool {
+	iTime := getLineTime(s[i])
+	jTime := getLineTime(s[j])
+	return iTime.Before(jTime)
+}
+
+func getLineTime(line string) time.Time {
+	timeStr := strings.Split(line, ",")[0]
+	time, err := time.Parse("Jan 2 15:04:05.000", timeStr)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return time
 }

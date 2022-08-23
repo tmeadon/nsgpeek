@@ -2,6 +2,7 @@ package flowwriter
 
 import (
 	"encoding/json"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -63,6 +64,7 @@ type flowTuple struct {
 	State          string
 	SrcToDestBytes string
 	DestToSrcBytes string
+	Rule           string
 }
 
 type jsonFlowLogBlockFlow struct {
@@ -134,4 +136,10 @@ func formatState(state string) string {
 func convertTime(unixTime string) time.Time {
 	t, _ := strconv.Atoi(unixTime)
 	return time.Unix(int64(t), 0).UTC()
+}
+
+func sortFlowTuples(flowTuples []flowTuple) {
+	sort.Slice(flowTuples, func(i, j int) bool {
+		return flowTuples[i].Time.Before(flowTuples[j].Time)
+	})
 }

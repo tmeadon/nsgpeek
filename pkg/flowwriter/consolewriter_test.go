@@ -3,8 +3,10 @@ package flowwriter
 import (
 	"bytes"
 	"log"
+	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 var consoleTestFlows string = `
@@ -103,6 +105,9 @@ func TestConsoleWriter(t *testing.T) {
 		allTableLines := strings.Split(buffer.String(), "\n")
 		tableLines := allTableLines[2:(len(allTableLines) - 1)]
 
+		// sort wanted table lines by date
+		sort.Sort(SortConsoleLinesByTime(wantedConsoleLines))
+
 		for i, wanted := range wantedConsoleLines {
 			got := strings.Fields(tableLines[i])
 
@@ -112,9 +117,32 @@ func TestConsoleWriter(t *testing.T) {
 
 			for j, w := range wanted {
 				if w != got[j] {
-					t.Errorf("missing table column value: '%v' in line '%v'", w, tableLines[i])
+					t.Errorf("missing table column value: '%v', got: %v, want: %v", w, got, wanted)
 				}
 			}
 		}
 	})
+}
+
+type SortConsoleLinesByTime [][]string
+
+func (s SortConsoleLinesByTime) Len() int { return len(s) }
+
+func (s SortConsoleLinesByTime) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+func (s SortConsoleLinesByTime) Less(i, j int) bool {
+	iTime := getConsoleLineTime(s[i])
+	jTime := getConsoleLineTime(s[j])
+	return iTime.Before(jTime)
+}
+
+func getConsoleLineTime(line []string) time.Time {
+	timeStr := strings.Join(line[:3], " ")
+	time, err := time.Parse("Jan 2 15:04:05.000", timeStr)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return time
 }

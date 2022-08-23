@@ -7,11 +7,14 @@ import (
 )
 
 type CsvFileWriter struct {
-	w io.Writer
+	w      io.Writer
+	tuples []flowTuple
 }
 
 func NewCsvFileWriter(w io.Writer) (*CsvFileWriter, error) {
-	c := CsvFileWriter{w}
+	c := CsvFileWriter{
+		w: w,
+	}
 	err := c.writeHeaders()
 	return &c, err
 }
@@ -39,20 +42,27 @@ func (c *CsvFileWriter) WriteFlowBlock(data []byte) error {
 		return fmt.Errorf("unable to decode flow log block: %w \n%v", err, string(data))
 	}
 
-	c.writeFlowBlock(fb)
+	c.saveFlowBlock(fb)
 	return nil
 }
 
-func (c *CsvFileWriter) writeFlowBlock(fb *flowLogBlock) {
+func (c *CsvFileWriter) saveFlowBlock(fb *flowLogBlock) {
 	for _, flowGroup := range fb.Properties.Flows {
 		for _, flow := range flowGroup.Flows {
 			for _, t := range flow.FlowTuples {
-				line := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v", t.Time.Format(time.StampMilli), flowGroup.Rule, t.SourceAddress, t.SourcePort,
-					t.DestAddress, t.DestPort, t.Direction, t.Decision, t.State, t.SrcToDestBytes, t.DestToSrcBytes)
-				c.writeLine(line)
+				t.Rule = flowGroup.Rule
+				c.tuples = append(c.tuples, t)
 			}
 		}
 	}
 }
 
-func (c *CsvFileWriter) Flush() {}
+func (c *CsvFileWriter) Flush() {
+	sortFlowTuples(c.tuples)
+
+	for _, t := range c.tuples {
+		line := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v", t.Time.Format(time.StampMilli), t.Rule, t.SourceAddress, t.SourcePort,
+			t.DestAddress, t.DestPort, t.Direction, t.Decision, t.State, t.SrcToDestBytes, t.DestToSrcBytes)
+		c.writeLine(line)
+	}
+}
