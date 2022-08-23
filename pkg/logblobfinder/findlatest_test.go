@@ -24,7 +24,6 @@ var (
 
 type fakeStorageBlobGetter struct {
 	NewestBlob             *azure.Blob
-	StorageIdSearched      *azure.ResourceId
 	NewestBlobSearchPrefix string
 }
 
@@ -109,5 +108,4 @@ func waitForBlob(t *testing.T, blobCh chan (*azure.Blob), errCh chan (error), ex
 	case <-time.After(timeout):
 		t.Errorf("timed out waiting for latest blob to be found")
 	}
-
 }
