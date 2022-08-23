@@ -138,12 +138,12 @@ func (s SortCsvFileLinesByTime) Len() int { return len(s) }
 func (s SortCsvFileLinesByTime) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 func (s SortCsvFileLinesByTime) Less(i, j int) bool {
-	iTime := getLineTime(s[i])
-	jTime := getLineTime(s[j])
+	iTime := getCsvFileLineTime(s[i])
+	jTime := getCsvFileLineTime(s[j])
 	return iTime.Before(jTime)
 }
 
-func getLineTime(line string) time.Time {
+func getCsvFileLineTime(line string) time.Time {
 	timeStr := strings.Split(line, ",")[0]
 	time, err := time.Parse("Jan 2 15:04:05.000", timeStr)
 
