@@ -15,8 +15,9 @@ import (
 )
 
 type StreamCmd struct {
-	NsgName string `required:"" short:"n" help:"Name of the NSG to stream logs from"`
-	CsvFile string `help:"Path to a CSV file to stream logs to"`
+	NsgName   string `required:"" short:"n" help:"Name of the NSG to stream logs from"`
+	CsvFile   string `help:"Path to a CSV file to stream logs to"`
+	Overwrite bool   `help:"Overwrite file if already exists"`
 }
 
 func (s *StreamCmd) Run(ctx *cliContext) error {
@@ -44,7 +45,10 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 
 	flowWriter := flowwriter.NewConsoleWriter(os.Stdout)
 	writers := flowwriter.NewWriterGroup(flowWriter)
-	addCsvWriter(s.CsvFile, writers)
+
+	if err = addCsvWriter(s.CsvFile, s.Overwrite, writers); err != nil {
+		return err
+	}
 
 	spinner := spinner.New(spinner.CharSets[43], 100*time.Millisecond)
 	spinner.Prefix = "waiting for nsg logs...  "
@@ -72,8 +76,12 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 	}
 }
 
-func addCsvWriter(path string, wg *flowwriter.WriterGroup) error {
+func addCsvWriter(path string, overwrite bool, wg *flowwriter.WriterGroup) error {
 	if path != "" {
+		if _, err := os.Stat(path); err == nil && !overwrite {
+			return fmt.Errorf("file already exists at path %v - add --overwrite or specify a different filepath, see command help for details", path)
+		}
+
 		file, err := os.Create(path)
 		if err != nil {
 			return fmt.Errorf("failed to create file %v: %w", path, err)
