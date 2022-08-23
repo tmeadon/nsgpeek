@@ -2,12 +2,11 @@ package flowwriter
 
 import (
 	"bytes"
-	"log"
 	"strings"
 	"testing"
 )
 
-var consoleTestFlows string = `
+var csvWriterTestFlows string = `
 {
   "time": "2022-08-09T10:03:27.7257644Z",
   "systemId": "e79aab03-ffb0-4419-8a28-90be262a7028",
@@ -61,35 +60,38 @@ var consoleTestFlows string = `
 }
 `
 
-var wantedConsoleLines = [][]string{
-	{"Aug", "9", "10:02:24.000", "DefaultRule_AllowInternetOutBound", "10.0.0.4", "50276", "51.104.229.52", "443", "out", "allow", "end", "2839", "5801"},
-	{"Aug", "9", "10:02:24.000", "DefaultRule_AllowInternetOutBound", "10.0.0.4", "47382", "51.105.74.153", "443", "out", "deny", "begin"},
-	{"Aug", "9", "10:02:30.000", "DefaultRule_AllowInternetOutBound", "10.0.0.4", "47382", "51.105.74.153", "443", "out", "allow", "continuing", "3769", "5061"},
-	{"Aug", "9", "10:02:36.000", "DefaultRule_DenyAllInBound", "117.88.229.255", "50996", "10.0.0.4", "23", "in", "deny", "begin"},
-	{"Aug", "9", "10:02:41.000", "DefaultRule_DenyAllInBound", "167.99.14.84", "39984", "10.0.0.4", "8080", "in", "deny", "begin"},
-	{"Aug", "9", "10:02:49.000", "DefaultRule_DenyAllInBound", "176.63.187.19", "46852", "10.0.0.4", "23", "in", "deny", "begin"},
-	{"Aug", "9", "10:02:31.000", "UserRule_ssh", "38.88.252.187", "59246", "10.0.0.4", "22", "in", "allow", "begin"},
-	{"Aug", "9", "10:02:38.000", "UserRule_ssh", "61.177.173.21", "56496", "10.0.0.4", "22", "in", "allow", "begin"},
+var wantedCsvFileLines = []string{
+	"Aug  9 10:02:24.000,DefaultRule_AllowInternetOutBound,10.0.0.4,50276,51.104.229.52,443,out,allow,end,2839,5801",
+	"Aug  9 10:02:24.000,DefaultRule_AllowInternetOutBound,10.0.0.4,47382,51.105.74.153,443,out,deny,begin,,",
+	"Aug  9 10:02:30.000,DefaultRule_AllowInternetOutBound,10.0.0.4,47382,51.105.74.153,443,out,allow,continuing,3769,5061",
+	"Aug  9 10:02:36.000,DefaultRule_DenyAllInBound,117.88.229.255,50996,10.0.0.4,23,in,deny,begin,,",
+	"Aug  9 10:02:41.000,DefaultRule_DenyAllInBound,167.99.14.84,39984,10.0.0.4,8080,in,deny,begin,,",
+	"Aug  9 10:02:49.000,DefaultRule_DenyAllInBound,176.63.187.19,46852,10.0.0.4,23,in,deny,begin,,",
+	"Aug  9 10:02:31.000,UserRule_ssh,38.88.252.187,59246,10.0.0.4,22,in,allow,begin,,",
+	"Aug  9 10:02:38.000,UserRule_ssh,61.177.173.21,56496,10.0.0.4,22,in,allow,begin,,",
 }
 
-func TestConsoleWriter(t *testing.T) {
+func TestCsvFileWriter(t *testing.T) {
 	var buffer bytes.Buffer
-	testFlowWriter := NewConsoleWriter(&buffer)
-
-	err := testFlowWriter.WriteFlowBlock([]byte(consoleTestFlows))
+	csvWriter, err := NewCsvFileWriter(&buffer)
 	if err != nil {
-		log.Fatalf("failed to set up test: %v", err)
+		t.Error(err)
 	}
 
-	testFlowWriter.Flush()
+	err = csvWriter.WriteFlowBlock([]byte(csvWriterTestFlows))
+	if err != nil {
+		t.Error(err)
+	}
 
-	t.Run("TestHeader", func(t *testing.T) {
+	csvWriter.Flush()
+
+	t.Run("TestCsvFileWriterWritesCorrectHeaders", func(t *testing.T) {
 		headerLine := strings.Split(buffer.String(), "\n")[0]
-		got := strings.Fields(headerLine)
+		got := strings.Split(headerLine, ",")
 		want := []string{"time", "rule", "src_addr", "src_port", "dst_addr", "dst_port", "direction", "decision", "state", "src_to_dst_bytes", "dst_to_src_bytes"}
 
 		if len(got) != len(want) {
-			t.Errorf("unexpected number of items in header line.  want: %v, got %v", want, got)
+			t.Errorf("unexpected number of headers.  want: %v, got: %v", want, got)
 		}
 
 		for i, h := range want {
@@ -99,20 +101,25 @@ func TestConsoleWriter(t *testing.T) {
 		}
 	})
 
-	t.Run("TestTableLines", func(t *testing.T) {
-		allTableLines := strings.Split(buffer.String(), "\n")
-		tableLines := allTableLines[2:(len(allTableLines) - 1)]
+	t.Run("TestFileLines", func(t *testing.T) {
+		allFileLines := strings.Split(buffer.String(), "\n")
+		fileLines := allFileLines[1:(len(allFileLines) - 1)]
 
-		for i, wanted := range wantedConsoleLines {
-			got := strings.Fields(tableLines[i])
+		if len(fileLines) != len(wantedCsvFileLines) {
+			t.Errorf("unexpected number of file lines. want: %v, got: %v", len(wantedCsvFileLines), len(fileLines))
+		}
 
-			if len(got) != len(wanted) {
-				t.Errorf("unexpected number of items in line: want: %v, got: %v", wanted, got)
+		for i, wantedLine := range wantedCsvFileLines {
+			got := strings.Split(fileLines[i], ",")
+			want := strings.Split(wantedLine, ",")
+
+			if len(got) != len(want) {
+				t.Errorf("unexpected number of items in line %v.  want: %v, got: %v", fileLines[i], want, got)
 			}
 
-			for j, w := range wanted {
+			for j, w := range want {
 				if w != got[j] {
-					t.Errorf("missing table column value: '%v' in line '%v'", w, tableLines[i])
+					t.Errorf("missing table column value: '%v' in line '%v'", w, fileLines[i])
 				}
 			}
 		}
