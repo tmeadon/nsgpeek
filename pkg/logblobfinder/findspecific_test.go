@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -97,6 +98,9 @@ func TestFindSpecific(t *testing.T) {
 		for _, g := range got {
 			gotPaths = append(gotPaths, g.Path)
 		}
+
+		sort.Strings(test.expected)
+		sort.Strings(gotPaths)
 
 		if !reflect.DeepEqual(test.expected, gotPaths) {
 			t.Fatalf("expected: %v, got %v", test.expected, gotPaths)
