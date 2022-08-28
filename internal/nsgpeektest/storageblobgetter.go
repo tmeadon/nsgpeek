@@ -8,21 +8,26 @@ import (
 )
 
 type StorageBlobGetter struct {
-	NewestBlob             *azure.Blob
-	NewestBlobSearchPrefix string
-	Blobs                  []string
+	newestBlobs     []*azure.Blob
+	newestBlobIndex int
+	PrefixChan      chan string
+	Blobs           []string
 }
 
-func NewFakeStorageBlobGetter(newestBlob *azure.Blob, fakeBlobPaths []string) *StorageBlobGetter {
+func NewFakeStorageBlobGetter(newestBlobs []*azure.Blob, fakeBlobPaths []string, prefixCh chan string) *StorageBlobGetter {
 	return &StorageBlobGetter{
-		NewestBlob: newestBlob,
-		Blobs:      fakeBlobPaths,
+		newestBlobs:     newestBlobs,
+		newestBlobIndex: 0,
+		Blobs:           fakeBlobPaths,
+		PrefixChan:      prefixCh,
 	}
 }
 
 func (f *StorageBlobGetter) GetNewestBlob(prefix string) (*azure.Blob, error) {
-	f.NewestBlobSearchPrefix = prefix
-	return f.NewestBlob, nil
+	f.PrefixChan <- prefix
+	blob := f.newestBlobs[f.newestBlobIndex]
+	f.newestBlobIndex++
+	return blob, nil
 }
 
 func (f *StorageBlobGetter) ListBlobDirectory(prefix string) (blobs []string, prefixes []string, err error) {

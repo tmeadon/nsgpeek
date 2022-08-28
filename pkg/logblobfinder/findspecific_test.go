@@ -84,7 +84,7 @@ func TestFindSpecific(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		mockStorageBlobGetter := nsgpeektest.NewFakeStorageBlobGetter(fakeBlob, test.blobs)
+		mockStorageBlobGetter := nsgpeektest.NewFakeStorageBlobGetter([]*azure.Blob{fakeBlob}, test.blobs, make(chan string))
 		finder := Finder{mockStorageBlobGetter, fakeNsgName}
 
 		got, err := finder.FindSpecific(test.start, test.end)
