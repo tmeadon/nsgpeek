@@ -12,6 +12,7 @@ var flowLogBlobContainerName string = "insights-logs-networksecuritygroupfloweve
 
 type Blob struct {
 	azblob.BlockBlobClient
+	Path string
 }
 
 type AzureStorageBlobGetter struct {
@@ -46,7 +47,7 @@ func (a *AzureStorageBlobGetter) GetNewestBlob(prefix string) (*Blob, error) {
 		return nil, err
 	}
 
-	return &Blob{*blobClient}, nil
+	return &Blob{*blobClient, newestBlobName}, nil
 }
 
 func (a *AzureStorageBlobGetter) getContainerClient(stgAccId *ResourceId) (*azblob.ContainerClient, error) {
@@ -133,6 +134,29 @@ func (a *AzureStorageBlobGetter) ListBlobDirectory(prefix string) (blobs []strin
 
 	if err := pager.Err(); err != nil {
 		return nil, nil, fmt.Errorf("failed to list blob directory with prefix %v: %w", prefix, err)
+	}
+
+	return
+}
+
+func (a *AzureStorageBlobGetter) ListBlobs(prefix string) (blobs []Blob, err error) {
+	pager := a.containerClient.ListBlobsFlat(&azblob.ContainerListBlobsFlatOptions{Prefix: &prefix})
+
+	for pager.NextPage(a.ctx) {
+		resp := pager.PageResponse()
+
+		for _, b := range resp.Segment.BlobItems {
+			bb, err := a.getBlockBlobClient(a.containerClient, *b.Name)
+			if err != nil {
+				return nil, err
+			}
+
+			blobs = append(blobs, Blob{*bb, *b.Name})
+		}
+	}
+
+	if err := pager.Err(); err != nil {
+		return nil, fmt.Errorf("failed to list blobs under prefix %v: %w", prefix, err)
 	}
 
 	return

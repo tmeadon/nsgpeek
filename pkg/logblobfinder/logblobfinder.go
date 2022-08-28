@@ -11,6 +11,7 @@ import (
 type storageBlobGetter interface {
 	GetNewestBlob(prefix string) (*azure.Blob, error)
 	ListBlobDirectory(prefix string) ([]string, []string, error)
+	ListBlobs(prefix string) ([]azure.Blob, error)
 }
 
 type Finder struct {
