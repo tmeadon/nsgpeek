@@ -2,63 +2,26 @@ package logblobfinder
 
 import (
 	"fmt"
-	"regexp"
 	"testing"
 	"time"
 
+	"github.com/tmeadon/nsgpeek/internal/nsgpeektest"
 	"github.com/tmeadon/nsgpeek/pkg/azure"
 )
 
-var (
-	fakeNewBlob   *azure.Blob
-	fakeBlobUrl   = "https://path.to/blob"
-	fakeNsgName   = "nsg-view"
-	fakeBlobPaths = []string{
+func TestFindLatest(t *testing.T) {
+	fakeNsgName := "nsg-view"
+	fakeBlobUrl := "https://path.to/blob"
+	fakeBlob := new(azure.Blob)
+	blobCh := make(chan (*azure.Blob))
+	errCh := make(chan (error))
+	mockStorageBlobGetter := nsgpeektest.NewFakeStorageBlobGetter(fakeBlob, []string{
 		fmt.Sprintf("/subscriptions/xxxx/resourceGroups/xxxx/providers/microsoft.network/NETWORKSECURITYGROUPS/%v/y=2022/m=05/d=01/h=12/m=00/macAddress=abc/PT1H.json", fakeNsgName),
 		fmt.Sprintf("/SUBSCRIPTIONS/xxxx/RESOURCEGROUPS/xxxx/PROVIDERS/microsoft.network/NETWORKSECURITYGROUPS/%v/y=2022/m=05/d=01/h=12/m=00/macAddress=abc/PT1H.json", "blah"),
 		"abc",
 		"asdji2wd29jasdjio2/kla0/!?!(*",
 		"123/\\///",
-	}
-)
-
-type fakeStorageBlobGetter struct {
-	NewestBlob             *azure.Blob
-	NewestBlobSearchPrefix string
-}
-
-func (f *fakeStorageBlobGetter) GetNewestBlob(prefix string) (*azure.Blob, error) {
-	f.NewestBlobSearchPrefix = prefix
-	return f.NewestBlob, nil
-}
-
-func (f *fakeStorageBlobGetter) ListBlobDirectory(prefix string) (blobs []string, prefixes []string, err error) {
-	pattern := fmt.Sprintf(`(?i)^(%v[^\/]*[\/]?).*$`, regexp.QuoteMeta(prefix))
-	re := regexp.MustCompile(pattern)
-
-	for _, path := range fakeBlobPaths {
-		matches := re.FindStringSubmatch(path)
-
-		if len(matches) > 1 {
-			m := matches[1]
-
-			if m[len(m)-1] == '/' {
-				prefixes = append(prefixes, m)
-			} else {
-				blobs = append(blobs, m)
-			}
-		}
-	}
-
-	return
-}
-
-func TestFindLatest(t *testing.T) {
-	fakeBlob := new(azure.Blob)
-	blobCh := make(chan (*azure.Blob))
-	errCh := make(chan (error))
-	mockStorageBlobGetter := new(fakeStorageBlobGetter)
-	mockStorageBlobGetter.NewestBlob = fakeBlob
+	})
 
 	finder := Finder{
 		storageBlobGetter: mockStorageBlobGetter,
@@ -78,11 +41,11 @@ func TestFindLatest(t *testing.T) {
 	})
 
 	t.Run("TestFindLatestSendsNewBlob", func(t *testing.T) {
-		go finder.FindLatest(blobCh, errCh, time.Second*3)
+		go finder.FindLatest(blobCh, errCh, time.Second*1)
 		waitForBlob(t, blobCh, errCh, fakeBlob, time.Second*5)
 
 		// change the newest blob
-		fakeNewBlob = new(azure.Blob)
+		fakeNewBlob := new(azure.Blob)
 		mockStorageBlobGetter.NewestBlob = fakeNewBlob
 		overrideGetBlobUrl(fakeBlobUrl + "/new")
 		waitForBlob(t, blobCh, errCh, fakeNewBlob, time.Second*5)
