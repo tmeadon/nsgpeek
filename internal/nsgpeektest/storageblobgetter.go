@@ -27,6 +27,8 @@ func (f *StorageBlobGetter) GetNewestBlob(prefix string) (*azure.Blob, error) {
 
 func (f *StorageBlobGetter) ListBlobDirectory(prefix string) (blobs []string, prefixes []string, err error) {
 	re := f.blobPrefixRegex(prefix)
+	prefixMap := make(map[string]bool)
+	blobMap := make(map[string]bool)
 
 	for _, path := range f.Blobs {
 		matches := re.FindStringSubmatch(path)
@@ -35,11 +37,19 @@ func (f *StorageBlobGetter) ListBlobDirectory(prefix string) (blobs []string, pr
 			m := matches[1]
 
 			if m[len(m)-1] == '/' {
-				prefixes = append(prefixes, m)
+				prefixMap[m] = true
 			} else {
-				blobs = append(blobs, m)
+				blobMap[m] = true
 			}
 		}
+	}
+
+	for k := range prefixMap {
+		prefixes = append(prefixes, k)
+	}
+
+	for k := range blobMap {
+		blobs = append(blobs, k)
 	}
 
 	return

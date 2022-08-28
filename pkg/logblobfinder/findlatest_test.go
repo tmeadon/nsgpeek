@@ -41,7 +41,7 @@ func TestFindLatest(t *testing.T) {
 	})
 
 	t.Run("TestFindLatestSendsNewBlob", func(t *testing.T) {
-		go finder.FindLatest(blobCh, errCh, time.Second*1)
+		go finder.FindLatest(blobCh, errCh, time.Second*2)
 		waitForBlob(t, blobCh, errCh, fakeBlob, time.Second*5)
 
 		// change the newest blob

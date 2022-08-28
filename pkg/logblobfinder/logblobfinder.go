@@ -2,10 +2,15 @@ package logblobfinder
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 
 	"github.com/tmeadon/nsgpeek/pkg/azure"
+)
+
+var (
+	ErrBlobPrefixNotFound error = errors.New("log blobs not found for nsg")
 )
 
 type storageBlobGetter interface {

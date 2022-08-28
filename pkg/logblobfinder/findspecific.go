@@ -20,6 +20,10 @@ func (f *Finder) FindSpecific(start time.Time, end time.Time) ([]azure.Blob, err
 		return nil, err
 	}
 
+	if logPrefix == "" {
+		return nil, ErrBlobPrefixNotFound
+	}
+
 	return f.findTimeBlobs(start, end, logPrefix)
 }
 
