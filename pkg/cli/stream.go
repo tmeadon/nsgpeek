@@ -2,22 +2,17 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/briandowns/spinner"
 	"github.com/tmeadon/nsgpeek/pkg/azure"
 	"github.com/tmeadon/nsgpeek/pkg/blobreader"
-	"github.com/tmeadon/nsgpeek/pkg/flowwriter"
 	"github.com/tmeadon/nsgpeek/pkg/logblobfinder"
 )
 
 type StreamCmd struct {
-	NsgName   string `required:"" short:"n" help:"Name of the NSG to stream logs from"`
-	CsvFile   string `help:"Path to a CSV file to stream logs to"`
-	Overwrite bool   `help:"Overwrite file if already exists"`
+	commonArgs
 }
 
 func (s *StreamCmd) Run(ctx *cliContext) error {
@@ -43,10 +38,8 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 	blobReader := blobreader.NewBlobReader(blobreader.NewBlobWrapper(blob), dataCh, errCh)
 	go blobReader.Stream(streamStopCh)
 
-	flowWriter := flowwriter.NewConsoleWriter(os.Stdout)
-	writers := flowwriter.NewWriterGroup(flowWriter)
-
-	if err = addCsvWriter(s.CsvFile, s.Overwrite, writers); err != nil {
+	writers, err := initWriterGroup(s.commonArgs)
+	if err != nil {
 		return err
 	}
 
@@ -74,25 +67,4 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 			log.Fatalf("error encountered: %v", err)
 		}
 	}
-}
-
-func addCsvWriter(path string, overwrite bool, wg *flowwriter.WriterGroup) error {
-	if path != "" {
-		if _, err := os.Stat(path); err == nil && !overwrite {
-			return fmt.Errorf("file already exists at path %v - add --overwrite or specify a different filepath, see command help for details", path)
-		}
-
-		file, err := os.Create(path)
-		if err != nil {
-			return fmt.Errorf("failed to create file %v: %w", path, err)
-		}
-
-		csvWriter, err := flowwriter.NewCsvFileWriter(file)
-		if err != nil {
-			return fmt.Errorf("failed to create csv file writer: %w", err)
-		}
-
-		wg.AddWriter(csvWriter)
-	}
-	return nil
 }

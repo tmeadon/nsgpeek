@@ -7,8 +7,9 @@ import (
 )
 
 type CsvFileWriter struct {
-	w      io.Writer
-	tuples []flowTuple
+	w          io.Writer
+	flowTuples []flowTuple
+	filter     filter
 }
 
 func NewCsvFileWriter(w io.Writer) (*CsvFileWriter, error) {
@@ -17,6 +18,10 @@ func NewCsvFileWriter(w io.Writer) (*CsvFileWriter, error) {
 	}
 	err := c.writeHeaders()
 	return &c, err
+}
+
+func (c *CsvFileWriter) AddFilter(f filter) {
+	c.filter = f
 }
 
 func (c *CsvFileWriter) writeHeaders() error {
@@ -47,20 +52,19 @@ func (c *CsvFileWriter) WriteFlowBlock(data []byte) error {
 }
 
 func (c *CsvFileWriter) saveFlowBlock(fb *flowLogBlock) {
-	for _, flowGroup := range fb.Properties.Flows {
-		for _, flow := range flowGroup.Flows {
-			for _, t := range flow.FlowTuples {
-				t.Rule = flowGroup.Rule
-				c.tuples = append(c.tuples, t)
-			}
+	tuples := getFlowTuples(fb)
+
+	for _, t := range tuples {
+		if c.filter == nil || c.filter.Print(t) {
+			c.flowTuples = append(c.flowTuples, t)
 		}
 	}
 }
 
 func (c *CsvFileWriter) Flush() {
-	sortFlowTuples(c.tuples)
+	sortFlowTuples(c.flowTuples)
 
-	for _, t := range c.tuples {
+	for _, t := range c.flowTuples {
 		line := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v", t.Time.Format(time.StampMilli), t.Rule, t.SourceAddress, t.SourcePort,
 			t.DestAddress, t.DestPort, t.Direction, t.Decision, t.State, t.SrcToDestBytes, t.DestToSrcBytes)
 		c.writeLine(line)

@@ -16,6 +16,8 @@ func (fw *fakeWriter) Flush() {
 	fw.flushCount++
 }
 
+func (fw *fakeWriter) AddFilter(f filter) {}
+
 var (
 	writer1 *fakeWriter
 	writer2 *fakeWriter

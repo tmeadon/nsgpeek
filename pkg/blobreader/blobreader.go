@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 )
@@ -27,76 +25,6 @@ func NewBlobReader(blob Blob, outCh chan ([][]byte), errCh chan (error)) *BlobRe
 		outCh: outCh,
 		errCh: errCh,
 	}
-}
-
-func (br *BlobReader) Stream(stop chan (bool)) {
-	readPosition, err := br.readToEnd()
-	if err != nil {
-		br.errCh <- fmt.Errorf("failed to read to end of blob: %w", err)
-		return
-	}
-
-	for {
-		select {
-		case _ = <-stop:
-			log.Print("stop")
-			break
-		case <-time.After(time.Second * 5):
-			pos, err := br.readNewBlocks(int64(readPosition))
-			if err != nil {
-				br.errCh <- err
-				return
-			}
-			readPosition = pos
-		}
-	}
-}
-
-func (br *BlobReader) readToEnd() (int64, error) {
-	blocks, err := br.getBlockList()
-	if err != nil {
-		return 0, err
-	}
-
-	index := int64(0)
-
-	for i := 0; i < (len(blocks.CommittedBlocks) - 1); i++ {
-		index = index + *blocks.CommittedBlocks[i].Size
-	}
-
-	return index, nil
-}
-
-func (br *BlobReader) readNewBlocks(offset int64) (int64, error) {
-	blocks, err := br.getBlockList()
-	if err != nil {
-		return 0, err
-	}
-
-	index := int64(0)
-	var data [][]byte
-
-	// iterate through the blocks, skipping the first and the last
-	for i := 0; i < (len(blocks.CommittedBlocks) - 1); i++ {
-		if index >= offset {
-			d, err := br.readBlock(&blocks.CommittedBlocks[i], index)
-			if err != nil {
-				return 0, err
-			}
-
-			if i != 0 {
-				data = append(data, d)
-			}
-		}
-
-		index = index + *blocks.CommittedBlocks[i].Size
-	}
-
-	if len(data) > 0 {
-		br.outCh <- data
-	}
-
-	return index, nil
 }
 
 func (br *BlobReader) getBlockList() (*BlobWrapperGetBlockListResponse, error) {

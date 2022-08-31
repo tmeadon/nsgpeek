@@ -29,3 +29,9 @@ func (wg *WriterGroup) Flush() {
 		w.Flush()
 	}
 }
+
+func (wg *WriterGroup) AddFilter(f filter) {
+	for _, w := range wg.writers {
+		w.AddFilter(f)
+	}
+}

@@ -17,7 +17,7 @@ var testBlobReader *BlobReader
 var outCh chan ([][]byte)
 var errCh chan (error)
 var stopCh chan (bool)
-var fakeError error = errors.New("block list get error")
+var errGetBlockList error = errors.New("block list get error")
 
 func addInitialBlocks() {
 	blocks := make([]BlobWrapperBlock, 0)
@@ -65,7 +65,7 @@ func (f *fakeErroringBlobWrapper) Download(ctx context.Context, options *azblob.
 }
 
 func (f *fakeErroringBlobWrapper) GetBlockList(ctx context.Context, listType azblob.BlockListType, options *azblob.BlockBlobGetBlockListOptions) (BlobWrapperGetBlockListResponse, error) {
-	return BlobWrapperGetBlockListResponse{}, fakeError
+	return BlobWrapperGetBlockListResponse{}, errGetBlockList
 }
 
 func TestMain(m *testing.M) {
@@ -135,8 +135,8 @@ func TestStreamSendsErrorsCorrectly(t *testing.T) {
 
 	select {
 	case err := <-errCh:
-		if !errors.Is(err, fakeError) {
-			t.Errorf("incorrect error type received.  expected: %v; wanted: %v", fakeError, err)
+		if !errors.Is(err, errGetBlockList) {
+			t.Errorf("incorrect error type received.  expected: %v; wanted: %v", errGetBlockList, err)
 		}
 	case <-time.After(time.Second):
 		t.Error(("error not received on error channel"))

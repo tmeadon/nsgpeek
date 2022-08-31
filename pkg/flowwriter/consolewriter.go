@@ -12,6 +12,7 @@ type ConsoleWriter struct {
 	w          io.Writer
 	table      *tablewriter.Table
 	flowTuples []flowTuple
+	filter     filter
 }
 
 func NewConsoleWriter(w io.Writer) *ConsoleWriter {
@@ -20,6 +21,10 @@ func NewConsoleWriter(w io.Writer) *ConsoleWriter {
 	}
 	cw.initTableWriter()
 	return &cw
+}
+
+func (c *ConsoleWriter) AddFilter(f filter) {
+	c.filter = f
 }
 
 func (cw *ConsoleWriter) initTableWriter() {
@@ -47,20 +52,12 @@ func (cw *ConsoleWriter) WriteFlowBlock(data []byte) error {
 
 func (cw *ConsoleWriter) saveFlowBlock(fb *flowLogBlock) {
 	tuples := getFlowTuples(fb)
-	cw.flowTuples = append(cw.flowTuples, tuples...)
-}
 
-func getFlowTuples(fb *flowLogBlock) (tuples []flowTuple) {
-	for _, flowGroup := range fb.Properties.Flows {
-		for _, flow := range flowGroup.Flows {
-			for _, t := range flow.FlowTuples {
-				t.Rule = flowGroup.Rule
-				tuples = append(tuples, t)
-			}
+	for _, t := range tuples {
+		if cw.filter == nil || cw.filter.Print(t) {
+			cw.flowTuples = append(cw.flowTuples, t)
 		}
 	}
-
-	return
 }
 
 func (cw *ConsoleWriter) Flush() {
