@@ -15,7 +15,7 @@ var (
 
 type storageBlobGetter interface {
 	GetNewestBlob(prefix string) (*azure.Blob, error)
-	ListBlobDirectory(prefix string) ([]string, []string, error)
+	ListBlobDirectory(prefix string) ([]azure.Blob, []string, error)
 	ListBlobs(prefix string) ([]azure.Blob, error)
 }
 
@@ -42,7 +42,7 @@ func NewLogBlobFinder(allSubscriptionIds []string, nsgName string, ctx context.C
 	}, nil
 }
 
-func (f *Finder) FindNsgBlobPrefix() (string, error) {
+func (f *Finder) findNsgBlobPrefix() (string, error) {
 	p, err := f.findBlobPrefix("")
 	return p, err
 }
