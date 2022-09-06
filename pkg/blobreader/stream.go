@@ -33,22 +33,22 @@ func (br *BlobReader) Stream(stopCh chan (bool)) {
 }
 
 func (br *BlobReader) skipToEnd() (int64, error) {
-	blocks, err := br.getBlockList()
+	blocks, err := br.blob.GetBlocks()
 	if err != nil {
 		return 0, err
 	}
 
 	index := int64(0)
 
-	for i := 0; i < (len(blocks.CommittedBlocks) - 1); i++ {
-		index = index + *blocks.CommittedBlocks[i].Size
+	for i := 0; i < (len(blocks) - 1); i++ {
+		index = index + blocks[i].Size
 	}
 
 	return index, nil
 }
 
 func (br *BlobReader) readNewBlocks(offset int64) (int64, error) {
-	blocks, err := br.getBlockList()
+	blocks, err := br.blob.GetBlocks()
 	if err != nil {
 		return 0, err
 	}
@@ -57,9 +57,9 @@ func (br *BlobReader) readNewBlocks(offset int64) (int64, error) {
 	var data [][]byte
 
 	// iterate through the blocks, skipping the first and the last
-	for i := 0; i < (len(blocks.CommittedBlocks) - 1); i++ {
+	for i := 0; i < (len(blocks) - 1); i++ {
 		if index >= offset {
-			d, err := br.readBlock(&blocks.CommittedBlocks[i], index)
+			d, err := br.blob.ReadBlock(&blocks[i], index)
 			if err != nil {
 				return 0, err
 			}
@@ -69,7 +69,7 @@ func (br *BlobReader) readNewBlocks(offset int64) (int64, error) {
 			}
 		}
 
-		index = index + *blocks.CommittedBlocks[i].Size
+		index = index + blocks[i].Size
 	}
 
 	if len(data) > 0 {

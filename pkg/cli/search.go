@@ -77,7 +77,7 @@ func readBlob(i int, b azure.Blob, dataCh chan [][]byte, errCh chan error, wg *s
 	defer wg.Done()
 
 	childErrCh := make(chan error)
-	blobReader := blobreader.NewBlobReader(blobreader.NewBlobWrapper(&b), dataCh, childErrCh)
+	blobReader := blobreader.NewBlobReader(&b, dataCh, childErrCh)
 
 	doneCh := make(chan bool)
 	go blobReader.Read(doneCh)

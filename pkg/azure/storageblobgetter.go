@@ -10,11 +10,6 @@ import (
 
 var flowLogBlobContainerName string = "insights-logs-networksecuritygroupflowevent"
 
-type Blob struct {
-	azblob.BlockBlobClient
-	Path string
-}
-
 type AzureStorageBlobGetter struct {
 	ctx             context.Context
 	cred            *Credential

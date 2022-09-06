@@ -35,7 +35,7 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 	case blob = <-blobCh:
 	}
 
-	blobReader := blobreader.NewBlobReader(blobreader.NewBlobWrapper(blob), dataCh, errCh)
+	blobReader := blobreader.NewBlobReader(blob, dataCh, errCh)
 	go blobReader.Stream(streamStopCh)
 
 	writers, err := initWriterGroup(s.commonArgs)
@@ -52,7 +52,7 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 		select {
 		case blob := <-blobCh:
 			streamStopCh <- true
-			blobReader = blobreader.NewBlobReader(blobreader.NewBlobWrapper(blob), dataCh, errCh)
+			blobReader = blobreader.NewBlobReader(blob, dataCh, errCh)
 			go blobReader.Stream(streamStopCh)
 
 		case data := <-dataCh:

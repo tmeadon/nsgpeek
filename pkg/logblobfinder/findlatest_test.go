@@ -10,18 +10,6 @@ import (
 )
 
 func TestFindLatest(t *testing.T) {
-	// fakeNsgName := "nsg-view"
-	// fakeBlobUrl := "https://path.to/blob"
-	// fakeBlob := new(azure.Blob)
-	// blobCh := make(chan (*azure.Blob))
-	// errCh := make(chan (error))
-	// mockStorageBlobGetter := nsgpeektest.NewFakeStorageBlobGetter(fakeBlob, []string{
-	// 	fmt.Sprintf("/subscriptions/xxxx/resourceGroups/xxxx/providers/microsoft.network/NETWORKSECURITYGROUPS/%v/y=2022/m=05/d=01/h=12/m=00/macAddress=abc/PT1H.json", fakeNsgName),
-	// 	fmt.Sprintf("/SUBSCRIPTIONS/xxxx/RESOURCEGROUPS/xxxx/PROVIDERS/microsoft.network/NETWORKSECURITYGROUPS/%v/y=2022/m=05/d=01/h=12/m=00/macAddress=abc/PT1H.json", "blah"),
-	// 	"abc",
-	// 	"asdji2wd29jasdjio2/kla0/!?!(*",
-	// 	"123/\\///",
-	// })
 	var fakeNsgName string
 	var fakeBlobUrl string
 	var fakeBlobs []*azure.Blob
@@ -35,7 +23,7 @@ func TestFindLatest(t *testing.T) {
 		fakeNsgName = "nsg-view"
 		fakeBlobUrl = "https://path.to/blob"
 		fakeBlobs = []*azure.Blob{{Path: "0"}, {Path: "1"}, {Path: "2"}}
-		blobCh = make(chan (*azure.Blob))
+		blobCh = make(chan (*azure.Blob), 5)
 		errCh = make(chan (error))
 		prefixCh = make(chan (string), 5)
 		mockStorageBlobGetter = nsgpeektest.NewFakeStorageBlobGetter(fakeBlobs, []string{
@@ -54,7 +42,7 @@ func TestFindLatest(t *testing.T) {
 	// 	nsgName:           fakeNsgName,
 	// }
 
-	t.Run("TestFindLatestGetsNewestBlobWithCorrectPrefix", func(t *testing.T) {
+	t.Run("GetsNewestBlobWithCorrectPrefix", func(t *testing.T) {
 		setup()
 		expectedPrefix := fmt.Sprintf("/subscriptions/xxxx/resourceGroups/xxxx/providers/microsoft.network/NETWORKSECURITYGROUPS/%v/", fakeNsgName)
 		go finder.FindLatest(blobCh, errCh, time.Second*3)
@@ -67,7 +55,7 @@ func TestFindLatest(t *testing.T) {
 		}
 	})
 
-	t.Run("TestFindLatestSendsNewBlob", func(t *testing.T) {
+	t.Run("SendsNewBlob", func(t *testing.T) {
 		setup()
 		go finder.FindLatest(blobCh, errCh, time.Second*2)
 
