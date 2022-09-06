@@ -2,6 +2,7 @@ package logblobfinder
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,40 +19,54 @@ func TestFindLatest(t *testing.T) {
 	var prefixCh chan string
 	var mockStorageBlobGetter *nsgpeektest.StorageBlobGetter
 	var finder Finder
+	var incorrectNsgName string
 
 	setup := func() {
 		fakeNsgName = "nsg-view"
+		incorrectNsgName = "blah"
 		fakeBlobUrl = "https://path.to/blob"
 		fakeBlobs = []*azure.Blob{{Path: "0"}, {Path: "1"}, {Path: "2"}}
 		blobCh = make(chan (*azure.Blob), 5)
 		errCh = make(chan (error))
-		prefixCh = make(chan (string), 5)
+		prefixCh = make(chan (string))
 		mockStorageBlobGetter = nsgpeektest.NewFakeStorageBlobGetter(fakeBlobs, []string{
+			fmt.Sprintf("/SUBSCRIPTIONS/xxxx/RESOURCEGROUPS/xxxx/PROVIDERS/microsoft.network/NETWORKSECURITYGROUPS/%v/y=2022/m=05/d=01/h=12/m=00/macAddress=abc/PT1H.json", incorrectNsgName),
+			fmt.Sprintf("/SUBSCRIPTIONS/xxxx/RESOURCEGROUPS/xxxx/PROVIDERS/microsoft.network/NETWORKSECURITYGROUPS/%v/y=2022/m=03/d=01/h=12/m=00/macAddress=abc/PT1H.json", incorrectNsgName),
 			fmt.Sprintf("/subscriptions/xxxx/resourceGroups/xxxx/providers/microsoft.network/NETWORKSECURITYGROUPS/%v/y=2022/m=05/d=01/h=12/m=00/macAddress=abc/PT1H.json", fakeNsgName),
-			fmt.Sprintf("/SUBSCRIPTIONS/xxxx/RESOURCEGROUPS/xxxx/PROVIDERS/microsoft.network/NETWORKSECURITYGROUPS/%v/y=2022/m=05/d=01/h=12/m=00/macAddress=abc/PT1H.json", "blah"),
 			"abc",
 			"asdji2wd29jasdjio2/kla0/!?!(*",
-			"123/\\///",
+			// "123/\\///",
 		}, prefixCh)
 		finder = Finder{mockStorageBlobGetter, fakeNsgName}
 		overrideGetBlobUrl(fakeBlobUrl)
 	}
 
-	// finder := Finder{
-	// 	storageBlobGetter: mockStorageBlobGetter,
-	// 	nsgName:           fakeNsgName,
-	// }
-
-	t.Run("GetsNewestBlobWithCorrectPrefix", func(t *testing.T) {
+	t.Run("SearchesForBlobWithCorrectPrefix", func(t *testing.T) {
 		setup()
-		expectedPrefix := fmt.Sprintf("/subscriptions/xxxx/resourceGroups/xxxx/providers/microsoft.network/NETWORKSECURITYGROUPS/%v/", fakeNsgName)
 		go finder.FindLatest(blobCh, errCh, time.Second*3)
-		searchedPrefix := <-prefixCh
+		searchedPrefixes := make([]string, 0)
+		expectedPrefix := fmt.Sprintf("/subscriptions/xxxx/resourceGroups/xxxx/providers/microsoft.network/NETWORKSECURITYGROUPS/%v/", fakeNsgName)
 
-		waitForBlob(t, blobCh, errCh, fakeBlobs[0], time.Second*5)
+	wait:
+		for {
+			select {
+			case p := <-prefixCh:
+				searchedPrefixes = append(searchedPrefixes, p)
+			case <-blobCh:
+				break wait
+			}
+		}
 
-		if searchedPrefix != expectedPrefix {
-			t.Errorf("incorrect blob prefix searched.  expected: '%v', got '%v'", expectedPrefix, searchedPrefix)
+		// check that the prefix for the incorrect nsg name wasn't searched
+		for _, p := range searchedPrefixes {
+			if strings.Contains(p, incorrectNsgName) {
+				t.Errorf("incorrect blob prefix searched: %v", p)
+			}
+		}
+
+		// the last element in searchedPrefixes will be the prefix searched in call to GetNewestBlob
+		if searchedPrefixes[len(searchedPrefixes)-1] != expectedPrefix {
+			t.Errorf("incorrect blob prefix searched.  expected: '%v', got '%v'", expectedPrefix, searchedPrefixes[len(searchedPrefixes)-1])
 		}
 	})
 
@@ -59,11 +74,11 @@ func TestFindLatest(t *testing.T) {
 		setup()
 		go finder.FindLatest(blobCh, errCh, time.Second*2)
 
-		waitForBlob(t, blobCh, errCh, fakeBlobs[0], time.Second*5)
+		waitForBlob(t, blobCh, errCh, prefixCh, fakeBlobs[0], time.Second*5)
 
 		// change the newest blob
 		overrideGetBlobUrl(fakeBlobUrl + "/new")
-		waitForBlob(t, blobCh, errCh, fakeBlobs[1], time.Second*5)
+		waitForBlob(t, blobCh, errCh, prefixCh, fakeBlobs[1], time.Second*5)
 	})
 }
 
@@ -73,8 +88,10 @@ func overrideGetBlobUrl(url string) {
 	}
 }
 
-func waitForBlob(t *testing.T, blobCh chan (*azure.Blob), errCh chan (error), expectedBlob *azure.Blob, timeout time.Duration) {
+func waitForBlob(t *testing.T, blobCh chan (*azure.Blob), errCh chan (error), prefixCh chan (string), expectedBlob *azure.Blob, timeout time.Duration) {
 	select {
+	case <-prefixCh:
+
 	case blob := <-blobCh:
 		if blob != expectedBlob {
 			t.Errorf("wrong blob received from goroutine. expected: %v; got: %v", expectedBlob, blob)

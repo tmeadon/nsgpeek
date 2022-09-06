@@ -56,6 +56,8 @@ func (f *Finder) findBlobPrefix(prefix string) (string, error) {
 	for _, p := range prefixes {
 		if isMatch(p, f.nsgName) {
 			return p, nil
+		} else if isDifferentNsgPrefix(p, f.nsgName) {
+			return "", nil
 		} else {
 			found, err := f.findBlobPrefix(p)
 
@@ -76,4 +78,13 @@ func isMatch(path string, nsgName string) bool {
 	r := regexp.MustCompile(`(?i).*\/networksecuritygroups\/` + nsgName + `\/$`)
 	m := r.Match([]byte(path))
 	return m
+}
+
+func isDifferentNsgPrefix(path string, nsgName string) bool {
+	r := regexp.MustCompile(`(?i).*\/networksecuritygroups\/([^\/]*)\/$`)
+	m := r.FindStringSubmatch(path)
+	if len(m) > 1 && m[1] != nsgName {
+		return true
+	}
+	return false
 }
