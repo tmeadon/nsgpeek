@@ -14,7 +14,6 @@ var (
 )
 
 type storageBlobGetter interface {
-	GetNewestBlob(prefix string) (*azure.Blob, error)
 	ListBlobDirectory(prefix string) ([]azure.Blob, []string, error)
 	ListBlobs(prefix string) ([]azure.Blob, error)
 }

@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
@@ -25,10 +26,14 @@ func NewAzureNsgGetter(nsgName string, ctx context.Context, cred *Credential) *A
 }
 
 func (a *AzureNsgGetter) GetNsgFlowLogStorageId(subscriptionIds []string) (*ResourceId, error) {
+	log.Print("finding nsg")
+
 	nsgId, err := a.findNsg(subscriptionIds)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Print("getting nsg")
 
 	nsg, err := a.getNsgById(nsgId)
 	if err != nil {

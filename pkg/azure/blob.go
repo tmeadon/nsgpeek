@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 )
 
 type Blob struct {
 	azblob.BlockBlobClient
-	Path string
+	Path         string
+	LastModified time.Time
 }
 
 func (b *Blob) GetBlocks() ([]BlobBlock, error) {

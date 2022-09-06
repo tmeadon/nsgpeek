@@ -15,7 +15,7 @@ var (
 )
 
 func (f *Finder) FindSpecific(start time.Time, end time.Time) ([]azure.Blob, error) {
-	logPrefix, err := f.FindNsgBlobPrefix()
+	logPrefix, err := f.findNsgBlobPrefix()
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/alecthomas/kong"
@@ -34,7 +35,9 @@ type commonArgs struct {
 
 func Run() {
 	ctx := kong.Parse(&cli, kong.UsageOnError(), kong.Name("nsgpeek"))
+	log.Print("getting credential")
 	getCredential(ctx)
+	log.Print("getting subs")
 	getUserSubscriptions(ctx)
 
 	err := ctx.Run(&cliContext{Debug: cli.Debug})
