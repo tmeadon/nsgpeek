@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func (br *BlobReader) Stream(stopCh chan (bool)) {
+func (br *BlobReader) Stream(stopCh chan (bool), sleepDuration time.Duration) {
 	readPosition, err := br.skipToEnd()
 	if err != nil {
 		br.errCh <- fmt.Errorf("failed to read to end of blob: %w", err)
@@ -17,7 +17,7 @@ func (br *BlobReader) Stream(stopCh chan (bool)) {
 	for {
 		select {
 		case stop = <-stopCh:
-		case <-time.After(time.Second * 5):
+		case <-time.After(sleepDuration):
 			pos, err := br.readNewBlocks(int64(readPosition))
 			if err != nil {
 				br.errCh <- err

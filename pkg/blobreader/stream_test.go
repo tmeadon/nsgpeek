@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/tmeadon/nsgpeek/internal/nsgpeektest"
+	"github.com/tmeadon/nsgpeek/pkg/azure"
 )
 
 func TestStream(t *testing.T) {
@@ -25,9 +26,9 @@ func TestStream(t *testing.T) {
 		testBlobReader = NewBlobReader(blob, outCh, errCh)
 	}
 
-	t.Run("TestStreamDoesntSendExistingBlocks", func(t *testing.T) {
+	t.Run("DoesntSendExistingBlocks", func(t *testing.T) {
 		setup()
-		go testBlobReader.Stream(stopCh)
+		go testBlobReader.Stream(stopCh, time.Second)
 		select {
 		case data := <-outCh:
 			if data != nil {
@@ -37,21 +38,23 @@ func TestStream(t *testing.T) {
 		}
 	})
 
-	t.Run("TestStreamSendsNewBlocks", func(t *testing.T) {
+	t.Run("SendsNewBlocks", func(t *testing.T) {
 		setup()
-		go testBlobReader.Stream(stopCh)
+		go testBlobReader.Stream(stopCh, time.Second)
 		time.Sleep(time.Second)
-		blob.AddBlock(2)
+
+		newBlocks := []azure.BlobBlock{{Name: "test1", Size: 123}, {Name: "test2", Size: 999}}
+		blob.AddBlocks(newBlocks)
 
 		select {
 		case data := <-outCh:
-			if len(data) > 2 {
-				t.Errorf("stream sent too much data. blocks expected: %v; blocks received: %v", 2, len(data))
+			if len(data) > len(newBlocks) {
+				t.Errorf("stream sent too much data. blocks expected: %v; blocks received: %v", len(newBlocks), len(data))
 			}
 
-			for i := 0; i < 2; i++ {
-				if string(data[i]) != nsgpeektest.FakeBlobData {
-					t.Errorf("stream sent the wrong data.  expected: %v; got %v", nsgpeektest.FakeBlobData, string(data[i]))
+			for i := 0; i < len(newBlocks); i++ {
+				if string(data[i]) != newBlocks[i].Name {
+					t.Errorf("stream sent the wrong data. expected %v, got %v", newBlocks[i].Name, string(data[i]))
 				}
 			}
 
@@ -60,16 +63,16 @@ func TestStream(t *testing.T) {
 		}
 	})
 
-	t.Run("TestStreamStopsCorrectly", func(t *testing.T) {
+	t.Run("StopsCorrectly", func(t *testing.T) {
 		setup()
-		go testBlobReader.Stream(stopCh)
+		go testBlobReader.Stream(stopCh, time.Second)
 
 		select {
 		case stopCh <- true:
 		default:
 		}
 
-		blob.AddBlock(1)
+		blob.AddBlocks([]azure.BlobBlock{{Name: "test123", Size: 999}})
 
 		select {
 		case <-outCh:
@@ -78,10 +81,10 @@ func TestStream(t *testing.T) {
 		}
 	})
 
-	t.Run("TestStreamSendsErrorsCorrectly", func(t *testing.T) {
+	t.Run("SendsErrorsCorrectly", func(t *testing.T) {
 		setup()
 		br := NewBlobReader(erroringBlob, outCh, errCh)
-		go br.Stream(stopCh)
+		go br.Stream(stopCh, time.Second)
 
 		select {
 		case err := <-errCh:
@@ -90,6 +93,43 @@ func TestStream(t *testing.T) {
 			}
 		case <-time.After(time.Second):
 			t.Error(("error not received on error channel"))
+		}
+	})
+
+	t.Run("DoesNotSendDuplicateBlocks", func(t *testing.T) {
+		setup()
+		go testBlobReader.Stream(stopCh, time.Second)
+		time.Sleep(time.Second)
+
+		waitForData := func() (received [][]byte) {
+			select {
+			case received = <-outCh:
+			case err := <-errCh:
+				t.Fatalf("unexpected error received: %v", err)
+			}
+			return
+		}
+
+		firstNewBlocks := []azure.BlobBlock{{Name: "test1", Size: 123}, {Name: "test2", Size: 999}}
+		blob.AddBlocks(firstNewBlocks)
+
+		received := waitForData()
+		readBlocks := make(map[string]bool)
+
+		for _, d := range received {
+			readBlocks[string(d)] = true
+		}
+
+		secondNewBlocks := []azure.BlobBlock{{Name: "test3", Size: 123}, {Name: "test4", Size: 999}}
+		blob.AddBlocks(secondNewBlocks)
+		time.Sleep(time.Second)
+
+		received = waitForData()
+
+		for _, d := range received {
+			if _, ok := readBlocks[string(d)]; ok {
+				t.Fatalf("block with data %v has been sent more than once", string(d))
+			}
 		}
 	})
 }

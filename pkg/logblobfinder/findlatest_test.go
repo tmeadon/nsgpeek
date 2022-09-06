@@ -87,7 +87,6 @@ func TestFindLatest(t *testing.T) {
 		setup()
 		go finder.FindLatest(blobCh, errCh, time.Second*3)
 		searchedPrefixes := make([]string, 0)
-		expectedPrefix := fmt.Sprintf("/subscriptions/xxxx/resourceGroups/xxxx/providers/microsoft.network/NETWORKSECURITYGROUPS/%v/", fakeNsgName)
 
 	wait:
 		for {
@@ -104,11 +103,6 @@ func TestFindLatest(t *testing.T) {
 			if strings.Contains(p, incorrectNsgName) {
 				t.Errorf("incorrect blob prefix searched: %v", p)
 			}
-		}
-
-		// the last element in searchedPrefixes will be the prefix searched in call to GetNewestBlob
-		if searchedPrefixes[len(searchedPrefixes)-1] != expectedPrefix {
-			t.Errorf("incorrect blob prefix searched.  expected: '%v', got '%v'", expectedPrefix, searchedPrefixes[len(searchedPrefixes)-1])
 		}
 	})
 

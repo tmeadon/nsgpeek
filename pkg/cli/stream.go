@@ -52,7 +52,7 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 	log.Print("creating blob reader")
 
 	blobReader := blobreader.NewBlobReader(blob, dataCh, errCh)
-	go blobReader.Stream(streamStopCh)
+	go blobReader.Stream(streamStopCh, time.Second*5)
 
 	log.Print("creating writer group")
 
@@ -72,7 +72,7 @@ func (s *StreamCmd) Run(ctx *cliContext) error {
 		case blob := <-blobCh:
 			streamStopCh <- true
 			blobReader = blobreader.NewBlobReader(blob, dataCh, errCh)
-			go blobReader.Stream(streamStopCh)
+			go blobReader.Stream(streamStopCh, time.Second*5)
 
 		case data := <-dataCh:
 			spin.Stop()

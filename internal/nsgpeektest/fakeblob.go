@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/tmeadon/nsgpeek/pkg/azure"
+	"golang.org/x/exp/slices"
 )
 
 var FakeBlobData = "fake"
@@ -16,19 +17,15 @@ type FakeBlob struct {
 
 func (f *FakeBlob) ReadBlock(block *azure.BlobBlock, blockIndex int64) ([]byte, error) {
 	f.BlocksRead = append(f.BlocksRead, *block)
-	return []byte(FakeBlobData), nil
+	return []byte(block.Name), nil
 }
 
 func (f *FakeBlob) GetBlocks() ([]azure.BlobBlock, error) {
 	return f.Blocks, nil
 }
 
-func (f *FakeBlob) AddBlock(count int) {
-	for i := 1; i <= count; i++ {
-		n := "new"
-		s := int64(999)
-		f.Blocks = append(f.Blocks, azure.BlobBlock{Name: n, Size: s})
-	}
+func (f *FakeBlob) AddBlocks(blocks []azure.BlobBlock) {
+	f.Blocks = slices.Insert(f.Blocks, len(f.Blocks)-1, blocks...)
 }
 
 func NewFakeBlob() *FakeBlob {
@@ -42,19 +39,15 @@ type FakeErroringBlob struct {
 }
 
 func (f *FakeErroringBlob) ReadBlock(block *azure.BlobBlock, blockIndex int64) ([]byte, error) {
-	return []byte(FakeBlobData), nil
+	return []byte(block.Name), nil
 }
 
 func (f *FakeErroringBlob) GetBlocks() ([]azure.BlobBlock, error) {
 	return f.blocks, ErrGetBlockList
 }
 
-func (f *FakeErroringBlob) AddBlock(count int) {
-	for i := 1; i <= count; i++ {
-		n := "new"
-		s := int64(999)
-		f.blocks = append(f.blocks, azure.BlobBlock{Name: n, Size: s})
-	}
+func (f *FakeErroringBlob) AddBlocks(blocks []azure.BlobBlock) {
+	f.blocks = slices.Insert(f.blocks, len(f.blocks)-1, blocks...)
 }
 
 func NewFakeErroringBlob() *FakeErroringBlob {
