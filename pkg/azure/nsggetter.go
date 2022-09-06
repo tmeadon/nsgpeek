@@ -8,6 +8,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 )
 
+var ErrFlowLogsNotEnabled error = fmt.Errorf("nsg does not have flow logs enabled")
+
 type AzureNsgGetter struct {
 	nsgName string
 	ctx     context.Context
@@ -31,6 +33,10 @@ func (a *AzureNsgGetter) GetNsgFlowLogStorageId(subscriptionIds []string) (*Reso
 	nsg, err := a.getNsgById(nsgId)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(nsg.Properties.FlowLogs) == 0 {
+		return nil, ErrFlowLogsNotEnabled
 	}
 
 	stgId, err := arm.ParseResourceID(*nsg.Properties.FlowLogs[0].Properties.StorageID)
